@@ -1,0 +1,20 @@
+apiVersion: v2
+name: splyntra
+description: |
+  Splyntra — unified observability + security for AI agents. Deploys the
+  collector, security detector service, and dashboard from the same images used
+  for self-host, plus optional bundled backends (Postgres, ClickHouse, NATS,
+  Valkey). Point at managed backends by disabling the bundled ones and setting
+  the external DSNs in values.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - observability
+  - security
+  - ai-agents
+  - opentelemetry
+home: https://github.com/splyntra/splyntra
+maintainers:
+  - name: Splyntra
+    email: dev@splyntra.io

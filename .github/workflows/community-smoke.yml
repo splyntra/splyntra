@@ -1,0 +1,41 @@
+name: community-smoke
+
+# The golden-rule gate: the open core must build, run, and be useful with ZERO
+# private code. Brings up the open stack via docker compose, ingests a trace and
+# views it with a risk score, and asserts the commercial surface (governance) is
+# absent (404) from the open binary. A failure here is release-blocking.
+on:
+  push:
+    paths: ["apps/**", "migrations/**", "docker-compose.yml", ".github/workflows/community-smoke.yml"]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the open stack
+        env:
+          POSTGRES_PASSWORD: smoke
+          CLICKHOUSE_PASSWORD: smoke
+          MINIO_ROOT_PASSWORD: smokesmoke
+          NEXTAUTH_SECRET: smoke-secret
+          ENV: development
+        run: docker compose up -d --build collector security postgres clickhouse nats valkey minio
+      - name: Wait for collector
+        run: |
+          for i in $(seq 1 40); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:4318/health)" = "200" ] && break; sleep 3;
+          done
+      - name: E2E (ingest + query + detectors)
+        run: pip install requests && python tests/test_e2e.py
+      - name: Governance must be ABSENT from the open binary
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer splyntra_dev_key" http://localhost:4318/v1/policies)
+          echo "/v1/policies -> $code"; [ "$code" = "404" ] || { echo "governance leaked into the open build"; exit 1; }
+      - name: One-way dependency (no private import in the open core)
+        working-directory: apps/collector
+        run: |
+          if go list -deps ./... | grep -q 'github.com/splyntra/cloud'; then
+            echo "open core imports the private repo"; exit 1; fi
+          echo "ok: open core has no private dependency"

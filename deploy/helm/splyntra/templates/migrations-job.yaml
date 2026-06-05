@@ -1,0 +1,86 @@
+{{/*
+Migration Jobs for EXTERNAL (managed) backends. Bundled in-cluster backends run
+the same SQL via their initdb mounts, so a Job is only needed when pointing at
+an external DSN. Runs as a post-install/upgrade hook.
+*/}}
+{{- if and .Values.migrations.enabled .Values.external.postgresDsn }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "splyntra.fullname" . }}-migrate-postgres
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels: {{- include "splyntra.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ .Values.migrations.postgresImage }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              for f in $(ls /sql/*.sql | sort); do
+                echo "applying $f"
+                psql "$POSTGRES_DSN" -v ON_ERROR_STOP=0 -f "$f"
+              done
+          env:
+            - name: POSTGRES_DSN
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: POSTGRES_DSN } }
+          volumeMounts:
+            - { name: sql, mountPath: /sql }
+      volumes:
+        - name: sql
+          configMap:
+            name: {{ include "splyntra.fullname" . }}-pg-init
+{{- end }}
+{{- if and .Values.migrations.enabled .Values.external.clickhouseDsn }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "splyntra.fullname" . }}-migrate-clickhouse
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels: {{- include "splyntra.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ .Values.migrations.clickhouseImage }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              for f in $(ls /sql/*.sql | sort); do
+                echo "applying $f"
+                clickhouse-client --host "{{ .Values.secrets.clickhouseUser }}" \
+                  --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" \
+                  --multiquery < "$f" || true
+              done
+          env:
+            - name: CLICKHOUSE_USER
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: CLICKHOUSE_USER } }
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: CLICKHOUSE_PASSWORD } }
+          volumeMounts:
+            - { name: sql, mountPath: /sql }
+      volumes:
+        - name: sql
+          configMap:
+            name: {{ include "splyntra.fullname" . }}-ch-init
+{{- end }}

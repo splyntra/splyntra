@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-evaluation
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: evaluation
+spec:
+  replicas: {{ .Values.evaluation.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: evaluation
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: evaluation
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: evaluation
+          image: {{ include "splyntra.evaluationImage" . }}
+          imagePullPolicy: {{ .Values.images.evaluation.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.evaluation.service.port }}
+          envFrom:
+            - secretRef:
+                name: {{ include "splyntra.secretName" . }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.evaluation.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.evaluation.service.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources: {{- toYaml .Values.evaluation.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-evaluation
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: evaluation
+spec:
+  type: {{ .Values.evaluation.service.type }}
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: evaluation
+  ports:
+    - port: {{ .Values.evaluation.service.port }}
+      targetPort: {{ .Values.evaluation.service.port }}
+      name: http

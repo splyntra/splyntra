@@ -1,0 +1,188 @@
+# Splyntra - Self-hosted deployment
+# Start: docker compose up -d
+# Dashboard: http://localhost:3000
+# Collector (OTLP): http://localhost:4318
+# Copy .env.example to .env and set credentials before deploying
+
+services:
+  # ─── Core Infrastructure ───────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-splyntra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-splyntra}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U splyntra"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    expose:
+      - "8123"
+      - "9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./migrations/clickhouse:/docker-entrypoint-initdb.d
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-splyntra}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-splyntra}
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    expose:
+      - "6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    expose:
+      - "4222"
+      - "8222"
+    command: ["--jetstream", "--store_dir=/data"]
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: minio/minio:latest
+    expose:
+      - "9000"
+      - "9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-splyntra}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Application Services ──────────────────────────────────────────
+
+  collector:
+    build:
+      context: ./apps/collector
+      dockerfile: Dockerfile
+    ports:
+      - "4318:4318"
+    environment:
+      PORT: "4318"
+      ENV: "${ENV:-development}"
+      POSTGRES_DSN: "postgres://${POSTGRES_USER:-splyntra}:${POSTGRES_PASSWORD:?err}@postgres:5432/${POSTGRES_DB:-splyntra}?sslmode=disable"
+      NATS_URL: "nats://nats:4222"
+      CLICKHOUSE_DSN: "clickhouse://${CLICKHOUSE_USER:-splyntra}:${CLICKHOUSE_PASSWORD:?err}@clickhouse:9000/${CLICKHOUSE_DB:-splyntra}"
+      VALKEY_ADDR: "valkey:6379"
+      RATE_LIMIT_RPS: "1000"
+      CORS_ORIGINS: "http://localhost:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4318/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      valkey:
+        condition: service_healthy
+
+  security:
+    build:
+      context: ./apps/security
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      NATS_URL: "nats://nats:4222"
+    depends_on:
+      nats:
+        condition: service_started
+
+  evaluation:
+    build:
+      context: ./apps/evaluation
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      ENV: "${ENV:-development}"
+      POSTGRES_DSN: "postgres://${POSTGRES_USER:-splyntra}:${POSTGRES_PASSWORD:?err}@postgres:5432/${POSTGRES_DB:-splyntra}?sslmode=disable"
+      S3_ENDPOINT: "http://minio:9000"
+      S3_ACCESS_KEY: "${MINIO_ROOT_USER:-splyntra}"
+      S3_SECRET_KEY: "${MINIO_ROOT_PASSWORD:?err}"
+      EVAL_BUCKET: "splyntra-datasets"
+      EVAL_LLM_API_KEY: "${EVAL_LLM_API_KEY:-}"
+      EVAL_LLM_MODEL: "${EVAL_LLM_MODEL:-gpt-4o-mini}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://collector:4318"
+      COLLECTOR_URL: "http://collector:4318"
+      EVAL_URL: "http://evaluation:8002"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}"
+      POSTGRES_DSN: "postgres://${POSTGRES_USER:-splyntra}:${POSTGRES_PASSWORD:?err}@postgres:5432/${POSTGRES_DB:-splyntra}?sslmode=disable"
+      # Server-side collector key the dashboard BFF uses on behalf of logged-in
+      # users (so no per-user API key is needed to view data). Override per-org
+      # in production.
+      SPLYNTRA_API_KEY: "${SPLYNTRA_API_KEY:-splyntra_dev_key}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      collector:
+        condition: service_started
+      evaluation:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  valkey_data:
+  nats_data:
+  minio_data:

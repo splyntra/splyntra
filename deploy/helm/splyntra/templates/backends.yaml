@@ -1,0 +1,282 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "splyntra.fullname" . }}-postgres
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-postgres
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          env:
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: POSTGRES_PASSWORD } }
+            - name: POSTGRES_DB
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: POSTGRES_DB } }
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "{{ .Values.secrets.postgresUser }}"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: init, mountPath: /docker-entrypoint-initdb.d }
+          resources: {{- toYaml .Values.postgres.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "splyntra.fullname" . }}-postgres
+        - name: init
+          configMap:
+            name: {{ include "splyntra.fullname" . }}-pg-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-postgres
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: postgres
+  ports:
+    - { port: 5432, targetPort: 5432 }
+{{- end }}
+{{- if .Values.clickhouse.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "splyntra.fullname" . }}-clickhouse
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.clickhouse.storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-clickhouse
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: clickhouse
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: clickhouse
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: clickhouse
+    spec:
+      containers:
+        - name: clickhouse
+          image: {{ .Values.clickhouse.image }}
+          env:
+            - name: CLICKHOUSE_USER
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: CLICKHOUSE_USER } }
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: CLICKHOUSE_PASSWORD } }
+            - name: CLICKHOUSE_DB
+              valueFrom: { secretKeyRef: { name: {{ include "splyntra.secretName" . }}, key: CLICKHOUSE_DB } }
+          ports:
+            - { containerPort: 8123 }
+            - { containerPort: 9000 }
+          readinessProbe:
+            httpGet: { path: /ping, port: 8123 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/clickhouse }
+            - { name: init, mountPath: /docker-entrypoint-initdb.d }
+          resources: {{- toYaml .Values.clickhouse.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "splyntra.fullname" . }}-clickhouse
+        - name: init
+          configMap:
+            name: {{ include "splyntra.fullname" . }}-ch-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-clickhouse
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: clickhouse
+  ports:
+    - { name: http, port: 8123, targetPort: 8123 }
+    - { name: native, port: 9000, targetPort: 9000 }
+{{- end }}
+{{- if .Values.nats.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-nats
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nats
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: nats
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: nats
+    spec:
+      containers:
+        - name: nats
+          image: {{ .Values.nats.image }}
+          args: ["--jetstream", "--store_dir=/data"]
+          ports:
+            - { containerPort: 4222 }
+            - { containerPort: 8222 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8222 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "splyntra.fullname" . }}-nats
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "splyntra.fullname" . }}-nats
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.nats.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-nats
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: nats
+  ports:
+    - { name: client, port: 4222, targetPort: 4222 }
+    - { name: monitor, port: 8222, targetPort: 8222 }
+{{- end }}
+{{- if .Values.valkey.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-valkey
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: valkey
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: valkey
+    spec:
+      containers:
+        - name: valkey
+          image: {{ .Values.valkey.image }}
+          ports:
+            - { containerPort: 6379 }
+          readinessProbe:
+            exec: { command: ["valkey-cli", "ping"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "splyntra.fullname" . }}-valkey
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "splyntra.fullname" . }}-valkey
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.valkey.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-valkey
+  labels: {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: valkey
+  ports:
+    - { port: 6379, targetPort: 6379 }
+{{- end }}

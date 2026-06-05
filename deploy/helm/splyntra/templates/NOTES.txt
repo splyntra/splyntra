@@ -1,0 +1,26 @@
+Splyntra {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}".
+
+Components:
+  - collector  (OTLP ingest + query API) : svc/{{ include "splyntra.fullname" . }}-collector:{{ .Values.collector.service.port }}
+  - security   (detector service)         : svc/{{ include "splyntra.fullname" . }}-security:{{ .Values.security.service.port }}
+  - web        (dashboard)                : svc/{{ include "splyntra.fullname" . }}-web:{{ .Values.web.service.port }}
+
+Backends: postgres={{ .Values.postgres.enabled }} clickhouse={{ .Values.clickhouse.enabled }} nats={{ .Values.nats.enabled }} valkey={{ .Values.valkey.enabled }}
+
+{{- if .Values.ingress.enabled }}
+Dashboard:  http://{{ .Values.ingress.webHost }}
+OTLP ingest: http://{{ .Values.ingress.collectorHost }}/v1/traces
+{{- else }}
+Port-forward to reach the dashboard locally:
+  kubectl port-forward svc/{{ include "splyntra.fullname" . }}-web {{ .Values.web.service.port }}:{{ .Values.web.service.port }}
+  open http://localhost:{{ .Values.web.service.port }}
+
+Point an SDK at the collector:
+  kubectl port-forward svc/{{ include "splyntra.fullname" . }}-collector {{ .Values.collector.service.port }}:{{ .Values.collector.service.port }}
+{{- end }}
+
+{{- if eq .Values.secrets.nextauthSecret "change-me-in-production" }}
+
+WARNING: secrets.nextauthSecret is still the default. Override it before exposing this install:
+  helm upgrade {{ .Release.Name }} ... --set secrets.nextauthSecret=$(openssl rand -hex 32)
+{{- end }}

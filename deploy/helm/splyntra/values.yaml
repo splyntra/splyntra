@@ -1,0 +1,154 @@
+# Default values for the Splyntra chart.
+# Managed cloud: disable the bundled backends and set the external.* DSNs.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ─── Application images ──────────────────────────────────────────────────────
+# Built from apps/{collector,security,web}/Dockerfile — the same codebase as
+# the docker-compose self-host path.
+images:
+  collector:
+    repository: splyntra/collector
+    tag: ""              # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  security:
+    repository: splyntra/security
+    tag: ""
+    pullPolicy: IfNotPresent
+  web:
+    repository: splyntra/web
+    tag: ""
+    pullPolicy: IfNotPresent
+  evaluation:
+    repository: splyntra/evaluation
+    tag: ""
+    pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+env: production           # collector ENV (set "development" to enable the dev key)
+
+# ─── Credentials ─────────────────────────────────────────────────────────────
+# In production, supply these via --set or an external secret. Defaults exist so
+# `helm template` and kind/minikube installs work out of the box.
+secrets:
+  postgresUser: splyntra
+  postgresPassword: splyntra
+  postgresDb: splyntra
+  clickhouseUser: splyntra
+  clickhousePassword: splyntra
+  clickhouseDb: splyntra
+  nextauthSecret: "change-me-in-production"
+  # Optional alert delivery destinations consumed by the collector notifier.
+  alertWebhookUrl: ""
+  alertSlackWebhookUrl: ""
+  # Object storage (eval datasets) + optional LLM-as-judge key.
+  minioUser: splyntra
+  minioPassword: splyntra
+  evalLlmApiKey: ""
+
+# ─── External (managed) backends ─────────────────────────────────────────────
+# Used only when the matching bundled backend is disabled. Leave blank to use
+# the bundled in-cluster backend instead.
+external:
+  postgresDsn: ""         # e.g. postgres://user:pass@host:5432/splyntra?sslmode=require
+  clickhouseDsn: ""       # e.g. clickhouse://user:pass@host:9000/splyntra
+  natsUrl: ""             # e.g. nats://host:4222
+  valkeyAddr: ""          # e.g. host:6379
+
+# ─── Collector ───────────────────────────────────────────────────────────────
+collector:
+  replicas: 2
+  rateLimitRps: 1000
+  corsOrigins: "*"
+  service:
+    type: ClusterIP
+    port: 4318
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# ─── Security detector service ───────────────────────────────────────────────
+security:
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8001
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "2", memory: 2Gi }
+
+# ─── Evaluation service ──────────────────────────────────────────────────────
+evaluation:
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8002
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+# ─── Web dashboard ───────────────────────────────────────────────────────────
+web:
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# ─── Ingress (exposes web + collector OTLP) ──────────────────────────────────
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  webHost: splyntra.local
+  collectorHost: ingest.splyntra.local
+  tls: []
+
+# ─── Bundled backends (set enabled:false to use external.* instead) ──────────
+persistence:
+  storageClass: ""        # "" = cluster default
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storage: 5Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+clickhouse:
+  enabled: true
+  image: clickhouse/clickhouse-server:24.3
+  storage: 20Gi
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "2", memory: 4Gi }
+
+nats:
+  enabled: true
+  image: nats:2.10-alpine
+  storage: 5Gi
+
+valkey:
+  enabled: true
+  image: valkey/valkey:7.2-alpine
+  storage: 1Gi
+
+# Runs the DB migration Jobs (Postgres + ClickHouse) on install/upgrade.
+migrations:
+  enabled: true
+  postgresImage: postgres:16-alpine
+  clickhouseImage: clickhouse/clickhouse-server:24.3

@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: Apache-2.0
+"""Main Splyntra client - configures OTel pipeline targeting the Splyntra collector."""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from splyntra.exporters import make_otlp_exporter
+from splyntra.redaction import RedactingSpanProcessor
+
+
+class Splyntra:
+    """Initialize Splyntra tracing with one line.
+
+    Usage:
+        from splyntra import Splyntra
+        splyntra = Splyntra(api_key="splyntra_...", project="my-project")
+
+    Pass ``instrument=("langgraph", "openai")`` to auto-instrument frameworks,
+    or call :func:`splyntra.instrument` separately.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        project: str,
+        endpoint: str = "http://localhost:4318",
+        environment: str = "development",
+        service_name: Optional[str] = None,
+        framework: Optional[str] = None,
+        redact_by_default: bool = True,
+        instrument: Optional[tuple] = None,
+    ):
+        if not api_key:
+            raise ValueError("Splyntra: api_key is required")
+        if not project:
+            raise ValueError("Splyntra: project is required")
+
+        self._api_key = api_key
+        self.project = project
+        self.endpoint = endpoint.rstrip("/")
+        self.environment = environment
+        self.framework = framework
+        self.redact_by_default = redact_by_default
+
+        resource_attrs = {
+            "service.name": service_name or project,
+            "splyntra.project": project,
+            "splyntra.environment": environment,
+            "deployment.environment": environment,
+        }
+        if framework:
+            resource_attrs["splyntra.framework"] = framework
+        resource = Resource.create(resource_attrs)
+
+        exporter = make_otlp_exporter(self.endpoint, self._api_key, project)
+
+        provider = TracerProvider(resource=resource)
+        # Redaction runs before export so secrets never leave this process.
+        if redact_by_default:
+            provider.add_span_processor(RedactingSpanProcessor())
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+
+        self._provider = provider
+        self._tracer = trace.get_tracer("splyntra", __import__("splyntra").__version__)
+
+        if instrument:
+            from splyntra.instrumentors import instrument as _instrument
+
+            _instrument(*instrument)
+
+    @property
+    def tracer(self) -> trace.Tracer:
+        return self._tracer
+
+    def shutdown(self) -> None:
+        """Flush and shut down the tracing pipeline."""
+        self._provider.shutdown()
+
+    def __enter__(self) -> "Splyntra":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.shutdown()

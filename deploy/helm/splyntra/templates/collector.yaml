@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-collector
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  {{- if not .Values.collector.autoscaling.enabled }}
+  replicas: {{ .Values.collector.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: collector
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: collector
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: collector
+          image: {{ include "splyntra.collectorImage" . }}
+          imagePullPolicy: {{ .Values.images.collector.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.collector.service.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.collector.service.port | quote }}
+            - name: ENV
+              value: {{ .Values.env | quote }}
+            - name: RATE_LIMIT_RPS
+              value: {{ .Values.collector.rateLimitRps | quote }}
+            - name: CORS_ORIGINS
+              value: {{ .Values.collector.corsOrigins | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "splyntra.secretName" . }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ .Values.collector.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.collector.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources: {{- toYaml .Values.collector.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-collector
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: collector
+spec:
+  type: {{ .Values.collector.service.type }}
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: collector
+  ports:
+    - port: {{ .Values.collector.service.port }}
+      targetPort: {{ .Values.collector.service.port }}
+      name: http
+{{- if .Values.collector.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "splyntra.fullname" . }}-collector
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "splyntra.fullname" . }}-collector
+  minReplicas: {{ .Values.collector.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.collector.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.collector.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

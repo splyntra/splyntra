@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splyntra.fullname" . }}-web
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  {{- if not .Values.web.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "splyntra.labels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: web
+          image: {{ include "splyntra.webImage" . }}
+          imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.web.service.port }}
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://{{ include "splyntra.fullname" . }}-collector:{{ .Values.collector.service.port }}"
+            - name: COLLECTOR_URL
+              value: "http://{{ include "splyntra.fullname" . }}-collector:{{ .Values.collector.service.port }}"
+            - name: EVAL_URL
+              value: "http://{{ include "splyntra.fullname" . }}-evaluation:{{ .Values.evaluation.service.port }}"
+            - name: NEXTAUTH_URL
+              value: "http://localhost:{{ .Values.web.service.port }}"
+          envFrom:
+            - secretRef:
+                name: {{ include "splyntra.secretName" . }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.web.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources: {{- toYaml .Values.web.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splyntra.fullname" . }}-web
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.web.service.type }}
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: web
+  ports:
+    - port: {{ .Values.web.service.port }}
+      targetPort: {{ .Values.web.service.port }}
+      name: http
+{{- if .Values.web.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "splyntra.fullname" . }}-web
+  labels:
+    {{- include "splyntra.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "splyntra.fullname" . }}-web
+  minReplicas: {{ .Values.web.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.web.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

@@ -1,0 +1,195 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  BIN_DIR: ./bin
+
+tasks:
+  # ─── Development ─────────────────────────────────────────────────────
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  dev:
+    desc: Start full stack locally (infra + services)
+    cmds:
+      - docker compose up -d
+      - echo "Dashboard → http://localhost:3000"
+      - echo "Collector → http://localhost:4318"
+
+  up:
+    desc: Start infrastructure only
+    cmds:
+      - docker compose up -d postgres clickhouse nats valkey minio
+
+  down:
+    desc: Stop everything
+    cmds:
+      - docker compose down
+
+  logs:
+    desc: Follow all service logs
+    cmds:
+      - docker compose logs -f
+
+  # ─── Build ───────────────────────────────────────────────────────────
+  build:
+    desc: Build all services
+    deps: [build:collector, build:web]
+
+  build:collector:
+    desc: Build Go collector binary
+    dir: apps/collector
+    cmds:
+      - go build -o ../../{{.BIN_DIR}}/collector ./cmd/collector
+    sources:
+      - "**/*.go"
+      - go.mod
+    generates:
+      - "../../{{.BIN_DIR}}/collector"
+
+  build:web:
+    desc: Build Next.js dashboard
+    dir: apps/web
+    cmds:
+      - npm ci
+      - npm run build
+
+  # ─── Test ────────────────────────────────────────────────────────────
+  test:
+    desc: Run all tests
+    deps: [test:go, test:python, test:ts, test:web]
+
+  test:go:
+    desc: Run Go tests
+    dir: apps/collector
+    cmds:
+      - go test -race -coverprofile=coverage.out ./...
+
+  test:python:
+    desc: Run Python SDK + security service tests
+    cmds:
+      - cd sdks/python && python -m pytest
+      - cd apps/security && python -m pytest
+
+  test:ts:
+    desc: Run TypeScript SDK tests
+    dir: sdks/typescript
+    cmds:
+      - npx vitest run
+
+  test:web:
+    desc: Type-check and unit-test the dashboard
+    dir: apps/web
+    cmds:
+      - npx tsc --noEmit
+      - npm test
+
+  # ─── Lint ────────────────────────────────────────────────────────────
+  lint:
+    desc: Lint all code
+    deps: [lint:go, lint:python, lint:ts]
+
+  lint:go:
+    desc: Lint Go code
+    dir: apps/collector
+    cmds:
+      - go vet ./...
+      - golangci-lint run || true
+
+  lint:python:
+    desc: Lint Python code
+    cmds:
+      - cd sdks/python && ruff check .
+      - cd apps/security && ruff check .
+
+  lint:ts:
+    desc: Lint TypeScript code
+    cmds:
+      - cd sdks/typescript && npx tsc --noEmit
+      - cd apps/web && npx tsc --noEmit
+
+  # ─── SDK ─────────────────────────────────────────────────────────────
+  sdk:install:
+    desc: Install Python SDK in development mode
+    dir: sdks/python
+    cmds:
+      - uv pip install -e ".[dev]"
+
+  sdk:build:ts:
+    desc: Build TypeScript SDK
+    dir: sdks/typescript
+    cmds:
+      - npm ci
+      - npm run build
+
+  # ─── Database ────────────────────────────────────────────────────────
+  migrate:
+    desc: Run all migrations
+    deps: [migrate:pg, migrate:ch]
+
+  migrate:pg:
+    desc: Run PostgreSQL migrations
+    cmds:
+      - |
+        for f in migrations/postgres/*.sql; do
+          docker compose exec -T postgres psql -U splyntra -d splyntra -f /docker-entrypoint-initdb.d/$(basename "$f")
+        done
+
+  migrate:ch:
+    desc: Run ClickHouse migrations
+    cmds:
+      - |
+        for f in migrations/clickhouse/*.sql; do
+          docker compose exec -T clickhouse clickhouse-client --queries-file /docker-entrypoint-initdb.d/$(basename "$f")
+        done
+
+  # ─── Docker ──────────────────────────────────────────────────────────
+  docker:build:
+    desc: Build all Docker images
+    cmds:
+      - docker compose build
+
+  docker:clean:
+    desc: Remove all data volumes
+    cmds:
+      - docker compose down -v
+
+  # ─── Helm (managed cloud) ────────────────────────────────────────────
+  helm:sync-migrations:
+    desc: Copy migrations into the chart (Helm can't read files outside the chart dir)
+    cmds:
+      - cp migrations/postgres/*.sql deploy/helm/splyntra/files/postgres/
+      - cp migrations/clickhouse/*.sql deploy/helm/splyntra/files/clickhouse/
+
+  helm:lint:
+    desc: Lint the Helm chart
+    deps: [helm:sync-migrations]
+    cmds:
+      - helm lint deploy/helm/splyntra
+
+  helm:template:
+    desc: Render the Helm chart to stdout
+    cmds:
+      - helm template splyntra deploy/helm/splyntra
+
+  helm:install:
+    desc: Install the chart into the current kube-context
+    cmds:
+      - helm upgrade --install splyntra deploy/helm/splyntra
+
+  # ─── Utilities ───────────────────────────────────────────────────────
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - rm -rf apps/web/.next
+      - rm -rf apps/web/node_modules/.cache
+
+  fmt:
+    desc: Format all code
+    cmds:
+      - cd apps/collector && gofmt -w .
+      - cd sdks/python && ruff format .
+      - cd apps/security && ruff format .

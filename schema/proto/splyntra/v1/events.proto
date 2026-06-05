@@ -1,0 +1,151 @@
+// Splyntra Event Schema
+//
+// Shared event and span schema used across all services.
+// Based on OpenTelemetry Trace specification with Splyntra extensions.
+//
+// This proto is the single source of truth for the event model.
+// All services (collector, security, dashboard) derive their types from this.
+
+syntax = "proto3";
+
+package splyntra.v1;
+
+option go_package = "github.com/splyntra/splyntra/schema/gen/go/splyntrav1";
+
+import "google/protobuf/timestamp.proto";
+
+// ─── Core Trace Model ───────────────────────────────────────────────────────
+
+// A complete agent execution trace.
+message Trace {
+  string trace_id = 1;
+  string org_id = 2;
+  string project_id = 3;
+  string environment = 4;
+  string agent_id = 5;
+  string workflow_id = 6;
+
+  TraceStatus status = 7;
+  uint32 latency_ms = 8;
+  uint32 total_tokens = 9;
+  uint32 prompt_tokens = 10;
+  uint32 completion_tokens = 11;
+  double cost_usd = 12;
+
+  // Security
+  uint32 risk_score = 13;        // 0-100
+  RiskSeverity risk_severity = 14;
+  uint32 detection_count = 15;
+
+  // Structure
+  repeated Span spans = 16;
+  repeated Detection detections = 17;
+
+  // Timestamps
+  google.protobuf.Timestamp started_at = 18;
+  google.protobuf.Timestamp completed_at = 19;
+  google.protobuf.Timestamp ingested_at = 20;
+}
+
+// A single step within a trace.
+message Span {
+  string trace_id = 1;
+  string span_id = 2;
+  string parent_span_id = 3;
+  string org_id = 4;
+  string project_id = 5;
+
+  SpanType type = 6;
+  string name = 7;
+  TraceStatus status = 8;
+  uint32 latency_ms = 9;
+
+  // LLM-specific (populated for llm_call type)
+  string model = 10;
+  uint32 prompt_tokens = 11;
+  uint32 completion_tokens = 12;
+  double cost_usd = 13;
+
+  // Content for replay (redacted)
+  string input_preview = 14;
+  string output_preview = 15;
+
+  // Metadata
+  map<string, string> attributes = 16;
+
+  google.protobuf.Timestamp started_at = 17;
+}
+
+// A security detection finding.
+message Detection {
+  string trace_id = 1;
+  string span_id = 2;
+  string org_id = 3;
+  string project_id = 4;
+
+  DetectorType detector = 5;
+  string category = 6;
+  Severity severity = 7;
+  float confidence = 8;
+  string description = 9;
+  bool is_beta = 10;
+
+  google.protobuf.Timestamp detected_at = 11;
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum SpanType {
+  SPAN_TYPE_UNSPECIFIED = 0;
+  SPAN_TYPE_AGENT = 1;
+  SPAN_TYPE_LLM_CALL = 2;
+  SPAN_TYPE_TOOL_CALL = 3;
+  SPAN_TYPE_STEP = 4;
+}
+
+enum TraceStatus {
+  TRACE_STATUS_UNSPECIFIED = 0;
+  TRACE_STATUS_OK = 1;
+  TRACE_STATUS_ERROR = 2;
+}
+
+enum DetectorType {
+  DETECTOR_TYPE_UNSPECIFIED = 0;
+  DETECTOR_TYPE_PII = 1;
+  DETECTOR_TYPE_SECRETS = 2;
+  DETECTOR_TYPE_INJECTION = 3;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_LOW = 1;
+  SEVERITY_MEDIUM = 2;
+  SEVERITY_HIGH = 3;
+  SEVERITY_CRITICAL = 4;
+}
+
+enum RiskSeverity {
+  RISK_SEVERITY_NONE = 0;
+  RISK_SEVERITY_LOW = 1;
+  RISK_SEVERITY_MEDIUM = 2;
+  RISK_SEVERITY_HIGH = 3;
+  RISK_SEVERITY_CRITICAL = 4;
+}
+
+// ─── Detection Request/Response (internal service communication) ────────────
+
+message DetectRequest {
+  string trace_id = 1;
+  string span_id = 2;
+  string org_id = 3;
+  string project_id = 4;
+  string content = 5;
+  repeated string detectors = 6;  // empty = run all
+}
+
+message DetectResponse {
+  string trace_id = 1;
+  string span_id = 2;
+  uint32 risk_score = 3;
+  repeated Detection detections = 4;
+}

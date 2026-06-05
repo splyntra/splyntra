@@ -1,0 +1,10 @@
+Splyntra
+Copyright (c) 2026 Splyntra, Inc.
+
+This product's open core is licensed under the GNU Affero General Public License
+v3.0 (AGPL-3.0-only), except for the client SDKs under sdks/, which are licensed
+under the Apache License 2.0. See LICENSING.md for the per-directory map.
+
+This product includes software developed by third parties under their respective
+open-source licenses (OpenTelemetry, ClickHouse Go client, NATS, chi, Presidio,
+Next.js, React, and others); see each dependency's license for details.

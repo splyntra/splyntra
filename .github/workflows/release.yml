@@ -1,0 +1,106 @@
+name: Release
+
+# Versioning is automated with release-please + Conventional Commits.
+#
+# How it works:
+#   1. Merge PRs to main using Conventional Commit titles:
+#        fix: ...     -> patch (0.1.0 -> 0.1.1)
+#        feat: ...    -> minor (0.1.0 -> 0.2.0)
+#        feat!: ...   -> major (0.1.0 -> 1.0.0)   (or a "BREAKING CHANGE:" footer)
+#   2. release-please opens/updates a single "Release PR" that bumps BOTH SDKs
+#      in lockstep (linked-versions) and updates each CHANGELOG.md.
+#   3. Merging that Release PR creates the GitHub Releases + tags, which trigger
+#      the publish jobs below.
+#
+# Credentials (one-time):
+#   - PyPI: Trusted Publishing (OIDC) for the `splyntra` project + a GitHub
+#     Environment named `release`.
+#   - npm:  NPM_TOKEN repo secret (automation token). Provenance via OIDC.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ─── Decide versions + open/merge the Release PR ────────────────────────
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      py_released: ${{ steps.release.outputs['sdks/python--release_created'] }}
+      ts_released: ${{ steps.release.outputs['sdks/typescript--release_created'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # ─── Python SDK → PyPI (only when its release was created) ──────────────
+  publish-pypi:
+    needs: release-please
+    if: needs.release-please.outputs.py_released == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write            # PyPI trusted publishing
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdks/python/dist
+
+  # ─── TypeScript SDK → npm (only when its release was created) ───────────
+  publish-npm:
+    needs: release-please
+    if: needs.release-please.outputs.ts_released == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write            # npm provenance
+    defaults:
+      run:
+        working-directory: sdks/typescript
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: sdks/typescript/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build + test
+        run: |
+          npx tsc --noEmit
+          npx vitest run
+          npm run build
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

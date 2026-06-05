@@ -1,0 +1,52 @@
+{
+  "name": "@splyntra/sdk",
+  "version": "0.1.0",
+  "description": "Splyntra TypeScript SDK - Agent observability & security, built on OpenTelemetry",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/splyntra/splyntra.git",
+    "directory": "sdks/typescript"
+  },
+  "homepage": "https://github.com/splyntra/splyntra/tree/main/sdks/typescript#readme",
+  "bugs": "https://github.com/splyntra/splyntra/issues",
+  "keywords": ["splyntra", "observability", "security", "opentelemetry", "agents", "llm"],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src/",
+    "test": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.8.0",
+    "@opentelemetry/sdk-trace-base": "^1.24.0",
+    "@opentelemetry/sdk-trace-node": "^1.24.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.51.0",
+    "@opentelemetry/resources": "^1.24.0",
+    "@opentelemetry/semantic-conventions": "^1.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^9.0.0"
+  }
+}

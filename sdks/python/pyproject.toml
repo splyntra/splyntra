@@ -1,0 +1,63 @@
+[project]
+name = "splyntra"
+version = "0.1.0"
+description = "Splyntra SDK - Agent observability & security, built on OpenTelemetry"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [{ name = "Splyntra", email = "dev@splyntra.io" }]
+keywords = ["agents", "observability", "opentelemetry", "security", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+
+dependencies = [
+    "opentelemetry-api>=1.24.0",
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.24.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
+    "opentelemetry-semantic-conventions>=0.45b0",
+    # BaseInstrumentor (instrumentors/__init__.py) is imported unconditionally
+    # at package load, so this is a core runtime dependency, not an extra.
+    "opentelemetry-instrumentation>=0.45b0",
+]
+
+[project.urls]
+Homepage = "https://github.com/splyntra/splyntra"
+Repository = "https://github.com/splyntra/splyntra"
+Documentation = "https://github.com/splyntra/splyntra/blob/main/docs/GETTING_STARTED.md"
+Issues = "https://github.com/splyntra/splyntra/issues"
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=0.1.0"]
+crewai = ["crewai>=0.30.0"]
+openai = ["openai>=1.0.0"]
+openai-agents = ["openai-agents>=0.0.1"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4.0",
+    "mypy>=1.9.0",
+]
+
+[project.scripts]
+splyntra = "splyntra.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/splyntra"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.9"
+strict = true

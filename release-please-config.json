@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": false,
+  "include-component-in-tag": true,
+  "packages": {
+    "sdks/python": {
+      "release-type": "python",
+      "package-name": "splyntra",
+      "extra-files": ["src/splyntra/__init__.py"],
+      "changelog-path": "CHANGELOG.md"
+    },
+    "sdks/typescript": {
+      "release-type": "node",
+      "package-name": "@splyntra/sdk",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "splyntra",
+      "components": ["splyntra", "@splyntra/sdk"]
+    }
+  ]
+}

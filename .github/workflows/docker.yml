@@ -1,0 +1,39 @@
+name: docker
+
+# Publishes the open-core service images on a version tag. The commercial
+# collector-cloud image is built in the private repository, not here.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [collector, security, evaluation, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive version
+        id: ver
+        run: echo "v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./apps/${{ matrix.service }}
+          push: true
+          tags: |
+            ghcr.io/splyntra/${{ matrix.service }}:latest
+            ghcr.io/splyntra/${{ matrix.service }}:${{ steps.ver.outputs.v }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
