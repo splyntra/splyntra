@@ -7,6 +7,8 @@ import { authConfig } from "@/auth.config";
 export const { auth: middleware } = NextAuth(authConfig);
 
 export const config = {
-  // Protect everything except Next internals and static assets.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Protect everything except Next internals and public static assets (the logo
+  // serves as favicon + PWA icon, fetched directly by the browser, so it must
+  // not be auth-gated).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|logo.png|manifest.json).*)"],
 };

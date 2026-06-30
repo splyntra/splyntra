@@ -66,7 +66,7 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-6xl p-6 lg:p-8">
       <PageHeader
         icon={Bell}
         title="Alerts"
@@ -76,7 +76,7 @@ export default function AlertsPage() {
       {/* Create form */}
       <form
         onSubmit={onCreate}
-        className="bg-white dark:bg-gray-900 rounded-lg border p-4 mb-6 grid gap-3 md:grid-cols-4"
+        className="mb-6 grid gap-3 rounded-xl border border-gray-200/80 bg-white p-5 shadow-card dark:border-gray-800 dark:bg-gray-900 md:grid-cols-4"
       >
         <label className="flex flex-col text-sm md:col-span-2">
           <span className="text-xs text-gray-500 mb-1">Alert name</span>

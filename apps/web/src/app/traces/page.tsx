@@ -13,7 +13,7 @@ export default function TracesPage() {
   const traces = data?.traces || [];
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <PageHeader
         icon={Activity}
         title="Traces"

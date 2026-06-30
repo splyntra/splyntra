@@ -20,7 +20,7 @@ export default function CostsPage() {
   const avgCostPerCall = totalCalls > 0 ? summary.avg_cost_per_call : 0;
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <PageHeader icon={DollarSign} title="Costs" subtitle="Token spend by run, model, and project" />
       {!hasRealData && !isLoading && (
         <p className="-mt-2 mb-4 text-xs text-amber-600">
@@ -46,7 +46,7 @@ export default function CostsPage() {
             {byProject.map((p) => (
               <div
                 key={p.project_id}
-                className="bg-white dark:bg-gray-900 rounded-lg border p-4"
+                className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card dark:border-gray-800 dark:bg-gray-900"
               >
                 <div className="text-xs font-medium font-mono truncate" title={p.project_id}>
                   {p.project_id}

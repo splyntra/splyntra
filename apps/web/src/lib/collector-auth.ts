@@ -4,13 +4,16 @@
 //
 // Open (Community) default: a single implicit org, so the BFF attaches the
 // server-side org key (SPLYNTRA_API_KEY) — or, only outside production, the dev
-// key. The commercial Cloud build registers a resolver (see the no-op
-// collector-auth-providers below, replaced by the cloud overlay) that instead
-// uses a trusted service token + X-Splyntra-Org-Id headers so each request is
-// scoped to the user's ACTIVE org (api_keys store only hashes, so a per-org key
-// can't be replayed). The collector honors that header path only when its
-// COLLECTOR_SERVICE_TOKEN matches.
-import "@/lib/collector-auth-providers"; // side-effect: cloud overlay registers its resolver
+// key. The commercial Cloud build registers a resolver via the overlay module
+// `@/lib/collector-auth-providers`, which the BFF routes import for its side
+// effects (it registers a resolver that uses a trusted service token +
+// X-Splyntra-Org-Id headers so each request is scoped to the user's ACTIVE org;
+// api_keys store only hashes, so a per-org key can't be replayed). The collector
+// honors that header path only when its COLLECTOR_SERVICE_TOKEN matches.
+//
+// NOTE: this module must NOT import the providers module — that would create an
+// import cycle (providers → this module's registry), so the BFF routes do the
+// side-effect import instead.
 
 type SessionLike = { user?: { id?: string; orgId?: string; role?: string } } | null | undefined;
 export interface CollectorAuth {

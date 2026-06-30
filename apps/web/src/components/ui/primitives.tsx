@@ -103,16 +103,16 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="mb-8 flex items-start justify-between gap-4">
       <div className="flex items-start gap-3">
         {Icon && (
-          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-splyntra-50 text-splyntra-600 dark:bg-splyntra-900/30 dark:text-splyntra-100">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-splyntra-50 text-splyntra-600 dark:bg-splyntra-950/40 dark:text-splyntra-300">
             <Icon className="h-5 w-5" />
           </div>
         )}
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>}
+          {subtitle && <p className="mt-1 text-[13px] text-gray-500 dark:text-gray-400">{subtitle}</p>}
         </div>
       </div>
       {action}
@@ -122,7 +122,7 @@ export function PageHeader({
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 ${className}`}>
+    <div className={`rounded-xl border border-gray-200/80 bg-white shadow-card dark:border-gray-800 dark:bg-gray-900 ${className}`}>
       {children}
     </div>
   );
@@ -140,12 +140,12 @@ export function StatCard({
   accent?: string;
 }) {
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</span>
-        {Icon && <Icon className="h-4 w-4 text-gray-400" />}
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
+        {Icon && <Icon className="h-4 w-4 text-gray-300 dark:text-gray-600" />}
       </div>
-      <div className={`mt-2 text-2xl font-semibold tabular-nums ${accent}`}>{value}</div>
+      <div className={`mt-2 text-2xl font-bold tabular-nums tracking-tight ${accent}`}>{value}</div>
     </Card>
   );
 }
@@ -160,12 +160,12 @@ export function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800">
-        <Icon className="h-6 w-6" />
+    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 dark:bg-gray-800">
+        <Icon className="h-7 w-7" />
       </div>
-      <p className="text-base font-medium text-gray-700 dark:text-gray-200">{title}</p>
-      {children && <div className="mt-1 max-w-md text-sm text-gray-500">{children}</div>}
+      <p className="text-[15px] font-medium text-gray-700 dark:text-gray-200">{title}</p>
+      {children && <div className="mt-2 max-w-md text-[13px] leading-relaxed text-gray-500">{children}</div>}
     </div>
   );
 }

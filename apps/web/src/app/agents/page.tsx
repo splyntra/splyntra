@@ -23,7 +23,7 @@ export default function AgentsPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <PageHeader
         icon={Bot}
         title="Agents"
@@ -53,17 +53,17 @@ export default function AgentsPage() {
           </EmptyState>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-800 border-b">
+            <thead className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Agent</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Traces</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Errors</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Avg Latency</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">P95 Latency</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Cost</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Detections</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Last Seen</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Agent</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Traces</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Errors</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Avg Latency</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">P95 Latency</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Cost</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Detections</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Last Seen</th>
               </tr>
             </thead>
             <tbody className="divide-y">

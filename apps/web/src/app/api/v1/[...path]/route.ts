@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth as getSession } from "@/auth";
 import { roleAtLeast } from "@/lib/db";
+import "@/lib/collector-auth-providers"; // side-effect: registers the resolver (no-op in OSS, OAuth/org in cloud)
 import { resolveCollectorAuth } from "@/lib/collector-auth";
 
 export const dynamic = "force-dynamic";
