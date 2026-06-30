@@ -7,17 +7,20 @@
       "release-type": "python",
       "package-name": "splyntra",
       "extra-files": ["src/splyntra/__init__.py"],
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "release-as": "1.0.0"
     },
     "sdks/typescript": {
       "release-type": "node",
       "package-name": "@splyntra/sdk",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "release-as": "1.0.0"
     },
     "apps/web": {
       "release-type": "node",
       "package-name": "@splyntra/dashboard",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "release-as": "1.0.0"
     }
   },
   "plugins": [

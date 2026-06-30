@@ -1,24 +1,27 @@
 # Splyntra Python SDK
 
-Agent observability **and** security for Python, built on OpenTelemetry. Install
-it, add one line, and every agent step, LLM call, and tool call shows up in
-Splyntra as a trace — annotated with a risk score for leaked secrets, PII, and
-prompt injection.
+[![PyPI](https://img.shields.io/pypi/v/splyntra)](https://pypi.org/project/splyntra/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](./LICENSE)
 
-## Install
+Unified observability and security for AI agents in Python. Built on OpenTelemetry, the Splyntra SDK captures every agent step, LLM call, and tool invocation as a structured trace — enriched with real-time risk scoring for leaked secrets, PII exposure, and prompt injection.
+
+## Installation
 
 ```bash
 pip install splyntra
-
-# with framework auto-instrumentation:
-pip install "splyntra[langgraph,openai]"
-# extras: langgraph, openai, openai-agents, crewai
 ```
 
-## Quick start (one line)
+With framework auto-instrumentation:
 
-Initialize once at startup. `instrument` auto-traces the listed frameworks — no
-per-call code changes.
+```bash
+pip install "splyntra[langgraph,openai]"
+```
+
+Available extras: `langgraph`, `openai`, `openai-agents`, `crewai`
+
+## Getting Started
+
+Initialize once at application startup. The `instrument` parameter enables automatic tracing for supported frameworks — no per-call changes required.
 
 ```python
 from splyntra import Splyntra
@@ -26,27 +29,26 @@ from splyntra import Splyntra
 Splyntra(
     api_key="splyntra_dev_key",
     project="my-app",
-    endpoint="http://localhost:4318",   # your collector (default shown)
-    framework="langgraph",               # surfaced on the Agents page
-    instrument=("langgraph", "openai"),  # auto-trace these frameworks
+    endpoint="http://localhost:4318",
+    framework="langgraph",
+    instrument=("langgraph", "openai"),
 )
 
-# ...run your LangGraph / OpenAI agent as usual — spans are captured automatically.
+# Run your LangGraph / OpenAI agent as usual — spans are captured automatically.
 ```
 
-Auto-instrument separately (e.g. after configuring the client elsewhere):
+To instrument separately (e.g., after configuring the client elsewhere):
 
 ```python
 from splyntra import instrument
 
-instrument()                 # auto-detect every installed framework
-instrument("langgraph")      # or enable a specific one
+instrument()                 # auto-detect all installed frameworks
+instrument("langgraph")      # or target a specific one
 ```
 
-## Instrument your own functions (decorators)
+## Manual Instrumentation
 
-For your own agent/tool/LLM functions, decorate them. Sync and async are both
-supported.
+For custom agent, tool, and LLM functions, use decorators. Both sync and async functions are supported.
 
 ```python
 from splyntra import trace_agent, trace_tool, trace_llm
@@ -57,87 +59,95 @@ def run(query: str):
     return call_llm(query)
 
 @trace_tool(name="crm.read")
-def read_customer(id: str): ...
+def read_customer(id: str):
+    ...
 
 @trace_llm(model="gpt-4o", provider="openai")
 def call_llm(prompt: str) -> dict:
-    # return a dict with a "usage" key for token/cost analytics
+    # Return a dict with a "usage" key for token/cost analytics
     ...
 ```
 
 ## Configuration
 
-| Argument            | Default                 | Description                                       |
-|---------------------|-------------------------|---------------------------------------------------|
-| `api_key`           | — (required)            | Splyntra API key (sent as a Bearer token).        |
-| `project`           | — (required)            | Project slug.                                     |
-| `endpoint`          | `http://localhost:4318` | Collector base URL (no path).                     |
-| `environment`       | `development`           | Deployment environment label.                     |
-| `service_name`      | `project`               | OTel `service.name`.                              |
-| `framework`         | `None`                  | Framework label, shown on the Agents page.        |
-| `redact_by_default` | `True`                  | Scrub secrets from spans **before** export.       |
-| `instrument`        | `None`                  | Tuple of frameworks to auto-instrument.           |
+| Parameter           | Default                 | Description                                    |
+|---------------------|-------------------------|------------------------------------------------|
+| `api_key`           | *required*              | Splyntra API key (sent as Bearer token)        |
+| `project`           | *required*              | Project slug                                   |
+| `endpoint`          | `http://localhost:4318` | Collector base URL                             |
+| `environment`       | `development`           | Deployment environment label                   |
+| `service_name`      | value of `project`      | OpenTelemetry `service.name` resource          |
+| `framework`         | `None`                  | Framework label shown on the Agents page       |
+| `redact_by_default` | `True`                  | Strip secrets from spans before export         |
+| `instrument`        | `None`                  | Tuple of frameworks to auto-instrument         |
 
-### Redaction by default
+## Client-Side Redaction
 
-High-confidence secrets (AWS keys, JWTs, bearer tokens, API keys) are stripped
-from span attributes **before they leave your process**. The collector redacts
-again on ingest as defence-in-depth. Disable with `redact_by_default=False`
-(not recommended).
+High-confidence secrets (AWS keys, JWTs, bearer tokens, API keys) are stripped from span attributes **before they leave your process**. The collector applies a second pass on ingest as defence-in-depth.
 
-## Supported auto-instrumentors
+Disable with `redact_by_default=False` (not recommended for production).
 
-| Framework        | `instrument` name | Notes                                        |
-|------------------|-------------------|----------------------------------------------|
-| OpenAI SDK       | `openai`          | Chat completions → `llm_call` spans.         |
-| LangGraph        | `langgraph`       | Graph run → `agent` span, nodes → `step`.    |
-| OpenAI Agents    | `openai-agents`   | `Runner.run` → `agent` span.                 |
-| CrewAI           | `crewai`          | Crew kickoff → `agent`, tasks → `step`, tools → `tool_call`. |
+## Supported Frameworks
 
-Each is a safe no-op when its package isn't installed. More are demand-driven.
-(Dify and n8n run out-of-process — see [docs/INTEGRATIONS.md](../../docs/INTEGRATIONS.md).)
+| Framework     | Extra name      | Span mapping                                              |
+|---------------|-----------------|-----------------------------------------------------------|
+| OpenAI SDK    | `openai`        | Chat completions → `llm_call` spans                      |
+| LangGraph     | `langgraph`     | Graph run → `agent` span, nodes → `step` spans           |
+| OpenAI Agents | `openai-agents` | `Runner.run` → `agent` span                              |
+| CrewAI        | `crewai`        | Crew kickoff → `agent`, tasks → `step`, tools → `tool_call` |
 
-## Evaluation (CI gates)
+Each instrumentor is a safe no-op when its target package is not installed.
 
-Push datasets and run scored evaluations against the Splyntra evaluation service;
-the CLI exits non-zero on a regression so it can gate a CI release:
+For out-of-process platforms (Dify, n8n), see [Integrations](../../docs/INTEGRATIONS.md).
+
+## Evaluation
+
+Run scored evaluations against the Splyntra evaluation service. The CLI exits non-zero on regression, making it suitable as a CI gate.
 
 ```python
 from splyntra import eval as ev
+
 ev.push_dataset("support-qa", [{"input": "...", "expected_output": "..."}])
-res = ev.run(dataset_id, results=[{"input": "...", "actual": "..."}], gate=True)
+result = ev.run(dataset_id, results=[{"input": "...", "actual": "..."}], gate=True)
 ```
 
 ```bash
 splyntra eval push --name support-qa --file dataset.jsonl
-splyntra eval run  --dataset <id> --file results.jsonl --gate   # exit 1 on regression
+splyntra eval run  --dataset <id> --file results.jsonl --gate
 ```
 
-## Governance (delegation + ledger)
+## Governance
 
-Ask whether an agent may act, and record consequential actions to the immutable
-ledger:
+Request delegation decisions and record consequential actions to the immutable ledger:
 
 ```python
 from splyntra import authorize, log_action
 
-d = authorize("payments.refund", agent_id="support_agent", context={"amount": 80})
-if d["decision"] == "allow":
-    ...                       # proceed
-elif d["decision"] == "needs_approval":
-    ...                       # a human approves in the dashboard
+decision = authorize(
+    "payments.refund",
+    agent_id="support_agent",
+    context={"amount": 80},
+)
+
+if decision["decision"] == "allow":
+    # proceed with action
+    ...
+elif decision["decision"] == "needs_approval":
+    # routed to human approval in the dashboard
+    ...
+
 log_action("refund", actor="support_agent", resource="order_42", metadata={"amount": 80})
 ```
 
 ## Examples
 
 ```bash
-python examples/langgraph_quickstart.py   # LangGraph, end-to-end
+python examples/quickstart.py             # Decorator-based, framework-free
+python examples/langgraph_quickstart.py   # LangGraph end-to-end
 python examples/crewai_quickstart.py      # CrewAI crew
-python examples/quickstart.py             # decorator-based, framework-free
-python examples/security_demo.py          # deliberately leaks secrets + PII
+python examples/security_demo.py          # Deliberately triggers security detections
 ```
 
 ## License
 
-Apache-2.0
+Apache-2.0 — see [LICENSE](./LICENSE).

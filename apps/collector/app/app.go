@@ -34,7 +34,7 @@ import (
 	"github.com/splyntra/splyntra/apps/collector/internal/tenant"
 )
 
-const version = "0.1.0"
+const version = "1.0.0"
 
 // Run starts the collector and blocks until a shutdown signal is received.
 // Extension modules registered via extension.Register before Run is called are

@@ -7,8 +7,8 @@ description: |
   Valkey). Point at managed backends by disabling the bundled ones and setting
   the external DSNs in values.
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 1.0.0
+appVersion: "1.0.0"
 keywords:
   - observability
   - security
