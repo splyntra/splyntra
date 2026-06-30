@@ -154,6 +154,6 @@ func (p *Publisher) PublishForDetection(ctx context.Context, evt *SpanEvent) err
 // Close shuts down the NATS connection.
 func (p *Publisher) Close() {
 	if p.nc != nil {
-		p.nc.Drain()
+		_ = p.nc.Drain()
 	}
 }

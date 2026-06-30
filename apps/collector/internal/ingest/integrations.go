@@ -196,7 +196,7 @@ func (h *Handler) finishIntegration(
 	)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"accepted": 1, "spans": spanCount, "trace_id": te.TraceID,
 	})
 }

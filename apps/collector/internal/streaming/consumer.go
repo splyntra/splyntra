@@ -126,9 +126,9 @@ func (c *DetectionConsumer) Start(ctx context.Context) error {
 
 			if err := c.processMessage(ctx, msg); err != nil {
 				c.logger.Error("process detection result failed", zap.Error(err))
-				msg.Nak()
+				_ = msg.Nak()
 			} else {
-				msg.Ack()
+				_ = msg.Ack()
 			}
 		}
 	}()
@@ -140,12 +140,12 @@ func (c *DetectionConsumer) processMessage(ctx context.Context, msg jetstream.Ms
 	var result DetectionResult
 	if err := json.Unmarshal(msg.Data(), &result); err != nil {
 		// Bad message - terminate (dead letter)
-		msg.Term()
+		_ = msg.Term()
 		return fmt.Errorf("unmarshal detection result: %w", err)
 	}
 
 	if result.TraceID == "" {
-		msg.Term()
+		_ = msg.Term()
 		return fmt.Errorf("empty trace_id in detection result")
 	}
 
@@ -198,6 +198,6 @@ func (c *DetectionConsumer) Close() {
 		c.cancel()
 	}
 	if c.nc != nil {
-		c.nc.Drain()
+		_ = c.nc.Drain()
 	}
 }

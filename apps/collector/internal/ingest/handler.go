@@ -104,7 +104,7 @@ func (h *Handler) ReceiveTraces(w http.ResponseWriter, r *http.Request) {
 	respBytes, _ := proto.Marshal(resp)
 	w.Header().Set("Content-Type", "application/x-protobuf")
 	w.WriteHeader(http.StatusOK)
-	w.Write(respBytes)
+	_, _ = w.Write(respBytes)
 }
 
 // persistTraces publishes traces for detection, writes them to ClickHouse, and
@@ -458,7 +458,7 @@ func (h *Handler) ReceiveEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"accepted":  len(traceEvents),
 		"spans":     spanCount,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),

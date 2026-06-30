@@ -41,7 +41,7 @@ func effectiveProject(r *http.Request, t *auth.TenantInfo) string {
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // ListTraces returns recent traces for the authenticated project.
