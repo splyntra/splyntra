@@ -1,6 +1,6 @@
 [project]
 name = "splyntra"
-version = "1.0.0"
+version = "1.1.0"
 description = "Splyntra SDK - Agent observability & security, built on OpenTelemetry"
 readme = "README.md"
 license = "Apache-2.0"

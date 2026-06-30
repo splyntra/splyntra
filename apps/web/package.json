@@ -1,6 +1,6 @@
 {
   "name": "@splyntra/dashboard",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Splyntra open dashboard — the composable source the commercial cloud build overlays. Published as source (not a prebuilt library): consumers compose it with their overlays + `next build`.",
   "license": "AGPL-3.0-only",
   "repository": {
