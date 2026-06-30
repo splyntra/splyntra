@@ -8,10 +8,13 @@
 
 <p align="center">See what your agents did and whether it was safe — in one view.</p>
 
-[![Go](https://github.com/splyntra/splyntra/actions/workflows/go.yml/badge.svg)](https://github.com/splyntra/splyntra/actions/workflows/go.yml)
-[![Python](https://github.com/splyntra/splyntra/actions/workflows/python.yml/badge.svg)](https://github.com/splyntra/splyntra/actions/workflows/python.yml)
-[![Web](https://github.com/splyntra/splyntra/actions/workflows/web.yml/badge.svg)](https://github.com/splyntra/splyntra/actions/workflows/web.yml)
-[![License](https://img.shields.io/badge/core-AGPL--3.0-blue.svg)](LICENSE) [![SDKs](https://img.shields.io/badge/SDKs-Apache--2.0-green.svg)](LICENSING.md)
+<p align="center">
+  <a href="https://github.com/splyntra/splyntra/actions/workflows/go.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/go.yml/badge.svg" alt="Go" /></a>
+  <a href="https://github.com/splyntra/splyntra/actions/workflows/python.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/python.yml/badge.svg" alt="Python" /></a>
+  <a href="https://github.com/splyntra/splyntra/actions/workflows/web.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/web.yml/badge.svg" alt="Web" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/core-AGPL--3.0-blue.svg" alt="License" /></a>
+  <a href="LICENSING.md"><img src="https://img.shields.io/badge/SDKs-Apache--2.0-green.svg" alt="SDKs" /></a>
+</p>
 
 ---
 
