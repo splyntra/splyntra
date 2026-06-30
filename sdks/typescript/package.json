@@ -1,6 +1,6 @@
 {
   "name": "@splyntra/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Splyntra TypeScript SDK - Agent observability & security, built on OpenTelemetry",
   "repository": {
     "type": "git",
@@ -9,7 +9,14 @@
   },
   "homepage": "https://github.com/splyntra/splyntra/tree/main/sdks/typescript#readme",
   "bugs": "https://github.com/splyntra/splyntra/issues",
-  "keywords": ["splyntra", "observability", "security", "opentelemetry", "agents", "llm"],
+  "keywords": [
+    "splyntra",
+    "observability",
+    "security",
+    "opentelemetry",
+    "agents",
+    "llm"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -19,7 +26,10 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public",
     "provenance": true

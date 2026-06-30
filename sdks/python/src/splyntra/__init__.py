@@ -15,4 +15,4 @@ __all__ = [
     "authorize",
     "log_action",
 ]
-__version__ = "0.1.0"  # x-release-please-version
+__version__ = "1.0.0"  # x-release-please-version
