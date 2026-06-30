@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/splyntra/splyntra/compare/dashboard-v1.0.0...dashboard-v1.1.0) (2026-06-30)
+
+
+### Features
+
+* production ui fix ([22fdb51](https://github.com/splyntra/splyntra/commit/22fdb51d38ea80c24ed720444f27b050ab12bbcf))
+
 ## [1.0.0](https://github.com/splyntra/splyntra/compare/dashboard-v0.3.0...dashboard-v1.0.0) (2026-06-30)
 
 
