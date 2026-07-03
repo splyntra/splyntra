@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+
+	"github.com/splyntra/splyntra/apps/collector/extension"
 )
 
 type contextKey string
@@ -189,7 +191,7 @@ func (a *APIKeyAuthenticator) resolve(key string) (*TenantInfo, bool) {
 
 	// Query PostgreSQL
 	if a.db == nil {
-		return nil, false
+		return a.resolveViaValidator(key)
 	}
 
 	keyHash := hashKey(key)
@@ -210,7 +212,9 @@ func (a *APIKeyAuthenticator) resolve(key string) (*TenantInfo, bool) {
 	`, keyHash).Scan(&t.KeyID, &t.OrgID, &t.ProjectID, &env, &scopes)
 
 	if err != nil {
-		return nil, false
+		// Not an API key — try a registered federated/JIT token validator
+		// (commercial identity module). OSS falls through to a deny.
+		return a.resolveViaValidator(key)
 	}
 	t.Scopes = scopes
 
@@ -229,6 +233,31 @@ func (a *APIKeyAuthenticator) resolve(key string) (*TenantInfo, bool) {
 
 	a.cache.Store(key, &cacheEntry{tenant: &t, ts: time.Now()})
 	return &t, true
+}
+
+// resolveViaValidator asks the registered token validator (a commercial identity
+// module — OIDC/JWT, JIT credentials) to authenticate a token the core could not
+// resolve as an API key. OSS registers no validator, so this denies. Positive
+// results are cached like API keys.
+func (a *APIKeyAuthenticator) resolveViaValidator(key string) (*TenantInfo, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	vi, ok := extension.Validator().Validate(ctx, key)
+	if !ok || vi == nil {
+		return nil, false
+	}
+	t := &TenantInfo{
+		OrgID:     vi.OrgID,
+		ProjectID: vi.ProjectID,
+		Env:       vi.Env,
+		KeyID:     vi.KeyID,
+		Scopes:    vi.Scopes,
+	}
+	if t.Env == "" {
+		t.Env = "production"
+	}
+	a.cache.Store(key, &cacheEntry{tenant: t, ts: time.Now()})
+	return t, true
 }
 
 func hashKey(key string) string {

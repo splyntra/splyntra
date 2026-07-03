@@ -3,11 +3,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAgents } from "@/lib/hooks";
 import { AgentItem } from "@/lib/api";
 import { Bot, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
 import { PageHeader, StatCard, Card, EmptyState } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/Select";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
 
 const WINDOWS = [
   { label: "All time", value: 0 },
@@ -17,11 +20,29 @@ const WINDOWS = [
 ];
 
 export default function AgentsPage() {
+  const router = useRouter();
   const [windowSec, setWindowSec] = useState(0);
   const { data, isLoading, error } = useAgents(windowSec || undefined);
 
   const agents: AgentItem[] = data?.agents || [];
   const hasRealData = !error && agents.length > 0;
+
+  const tc = useTableControls(agents, {
+    searchText: (a) => `${a.name || ""} ${a.agent_id} ${a.framework || ""}`,
+    sortAccessors: {
+      agent: (a) => (a.name || a.agent_id).toLowerCase(),
+      traces: (a) => a.trace_count,
+      errors: (a) => a.error_count,
+      avg_latency: (a) => a.avg_latency_ms,
+      p95_latency: (a) => a.p95_latency_ms,
+      cost: (a) => a.total_cost,
+      detections: (a) => a.detection_count,
+      risk: (a) => a.avg_risk || 0,
+      last_seen: (a) => new Date(a.last_seen_at).getTime() || 0,
+    },
+    initialSort: { key: "traces", dir: "desc" },
+    pageSize: 15,
+  });
 
   const totalAgents = agents.length;
   const activeAgents = agents.filter((a) => {
@@ -40,13 +61,21 @@ export default function AgentsPage() {
         title="Agents"
         subtitle="Monitor registered agents across environments"
         action={
-          <Select
-            value={String(windowSec)}
-            onValueChange={(v) => setWindowSec(Number(v))}
-            ariaLabel="Time window"
-            className="min-w-[150px]"
-            options={WINDOWS.map((w) => ({ value: String(w.value), label: w.label }))}
-          />
+          <div className="flex items-center gap-2">
+            <Select
+              value={String(windowSec)}
+              onValueChange={(v) => setWindowSec(Number(v))}
+              ariaLabel="Time window"
+              className="min-w-[150px]"
+              options={WINDOWS.map((w) => ({ value: String(w.value), label: w.label }))}
+            />
+            <Link
+              href="/agents/new"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+            >
+              <Bot className="h-4 w-4" /> Connect
+            </Link>
+          </div>
         }
       />
       {!hasRealData && !isLoading && (
@@ -64,6 +93,11 @@ export default function AgentsPage() {
       </div>
 
       {/* Agent table */}
+      {hasRealData && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search agents…" className="max-w-xs" />
+        </div>
+      )}
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-500">Loading agents…</div>
@@ -71,24 +105,27 @@ export default function AgentsPage() {
           <EmptyState icon={Bot} title="No agents found">
             Send traces to your collector to see agents here.
           </EmptyState>
+        ) : tc.total === 0 ? (
+          <EmptyState icon={Bot} title="No agents match your search">Try a different term.</EmptyState>
         ) : (
+          <>
           <table className="w-full text-sm">
             <thead className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
               <tr>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Agent</th>
+                <SortableTh label="Agent" sortKey="agent" sort={tc.sort} onSort={tc.toggleSort} />
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Traces</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Errors</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Avg Latency</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">P95 Latency</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Cost</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Detections</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Avg Risk</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Last Seen</th>
+                <SortableTh label="Traces" sortKey="traces" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="Errors" sortKey="errors" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="Avg Latency" sortKey="avg_latency" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="P95 Latency" sortKey="p95_latency" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="Cost" sortKey="cost" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="Detections" sortKey="detections" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="Avg Risk" sortKey="risk" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                <SortableTh label="Last Seen" sortKey="last_seen" sort={tc.sort} onSort={tc.toggleSort} align="right" />
               </tr>
             </thead>
             <tbody className="divide-y">
-              {agents.map((agent) => {
+              {tc.view.map((agent) => {
                 const errorRate = agent.trace_count > 0
                   ? ((agent.error_count / agent.trace_count) * 100).toFixed(1)
                   : "0.0";
@@ -96,14 +133,15 @@ export default function AgentsPage() {
                 const hasErrors = agent.error_count > 0;
 
                 return (
-                  <tr key={agent.agent_id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <tr
+                    key={agent.agent_id}
+                    onClick={() => router.push(`/agents/${encodeURIComponent(agent.agent_id)}`)}
+                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
                     <td className="px-4 py-3 font-medium">
-                      <Link
-                        href={`/agents/${encodeURIComponent(agent.agent_id)}`}
-                        className="text-gray-900 hover:text-splyntra-600 hover:underline dark:text-white dark:hover:text-splyntra-400"
-                      >
+                      <span className="text-gray-900 group-hover:text-splyntra-600 dark:text-white">
                         {agent.name || agent.agent_id}
-                      </Link>
+                      </span>
                       {agent.framework && (
                         <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-splyntra-50 text-splyntra-700">
                           {agent.framework}
@@ -158,6 +196,8 @@ export default function AgentsPage() {
               })}
             </tbody>
           </table>
+          <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="agent" />
+          </>
         )}
       </Card>
     </div>

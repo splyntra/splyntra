@@ -17,6 +17,10 @@ import {
   fetchProjects,
   fetchAlerts,
   fetchMetrics,
+  fetchSpanMetrics,
+  fetchAgentProfile,
+  SpanMetricsOpts,
+  SpanMetricsResponse,
   fetchDatasets,
   fetchEvalRuns,
   fetchEvalRun,
@@ -34,6 +38,7 @@ import {
   AlertsResponse,
   MetricsResponse,
   MetricsQueryOpts,
+  CostsQueryOpts,
 } from "@/lib/api";
 import { useProject } from "@/lib/project-context";
 
@@ -74,11 +79,14 @@ export function useAgents(windowSec?: number) {
   });
 }
 
-export function useCosts() {
+// useCosts accepts either an agent id (per-agent Costs tab) or a full opts object
+// (source/platform scoping for the fleet + platform cost views).
+export function useCosts(arg?: string | CostsQueryOpts) {
   const { projectId } = useProject();
+  const opts: CostsQueryOpts = typeof arg === "string" ? { agentId: arg } : arg ?? {};
   return useQuery<CostsResponse>({
-    queryKey: ["costs", projectId],
-    queryFn: () => fetchCosts(),
+    queryKey: ["costs", opts, projectId],
+    queryFn: () => fetchCosts(opts),
     retry: 1,
   });
 }
@@ -96,6 +104,25 @@ export function usePricing(enabled = true) {
     queryKey: ["pricing"],
     queryFn: () => fetchPricing(),
     enabled,
+    retry: 1,
+  });
+}
+
+export function useAgentProfile(agentId: string, enabled = true) {
+  const { projectId } = useProject();
+  return useQuery<import("@/lib/api").AgentProfile>({
+    queryKey: ["agent-profile", agentId, projectId],
+    queryFn: () => fetchAgentProfile(agentId),
+    enabled: enabled && !!agentId,
+    retry: 0,
+  });
+}
+
+export function useSpanMetrics(opts: SpanMetricsOpts = {}) {
+  const { projectId } = useProject();
+  return useQuery<SpanMetricsResponse>({
+    queryKey: ["span-metrics", opts, projectId],
+    queryFn: () => fetchSpanMetrics(opts),
     retry: 1,
   });
 }

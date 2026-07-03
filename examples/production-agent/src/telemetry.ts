@@ -17,9 +17,11 @@ export function initTelemetry(cfg: Config): Splyntra {
     endpoint: cfg.splyntra.endpoint,
     environment: cfg.env,
     serviceName: "support-triage-agent",
-    // Auto-instrument the LLM provider — every chat.completions call becomes an
-    // llm_call span with token usage, no manual wrapping needed.
-    instrument: cfg.openai.apiKey ? ["openai"] : [],
+    // No auto-instrumentation: the agent wraps its LLM call explicitly with
+    // wrapLLM (see agent.ts). That's reliable across ESM/CJS, whereas the openai
+    // auto-instrumentor patches the package's CJS build only. Wrapping explicitly
+    // also keeps exactly one llm_call span (no risk of double-instrumenting).
+    instrument: [],
     // Strip high-confidence secrets from spans before they leave this process.
     // On by default; pinned here to make the production intent explicit.
     redactByDefault: true,
@@ -28,7 +30,9 @@ export function initTelemetry(cfg: Config): Splyntra {
     project: cfg.splyntra.project,
     endpoint: cfg.splyntra.endpoint,
     environment: cfg.env,
-    autoInstrument: cfg.openai.apiKey ? "openai" : "none",
+    llmProvider: cfg.llm.provider,
+    model: cfg.llm.model,
+    instrumentation: "explicit (wrapLLM)",
   });
   return instance;
 }

@@ -20,6 +20,8 @@ from detectors.models import Detection
 from detectors.pii import PIIDetector
 from detectors.secrets import SecretDetector
 from detectors.injection import InjectionDetector
+from detectors.moderation import ModerationDetector
+from detectors.tool_guard import DangerousToolCallDetector
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,8 @@ class DetectorConsumer:
         self.pii = PIIDetector()
         self.secrets = SecretDetector()
         self.injection = InjectionDetector()
+        self.moderation = ModerationDetector()
+        self.tool_guard = DangerousToolCallDetector()
         self._shutdown = asyncio.Event()
 
     async def start(self):
@@ -92,6 +96,9 @@ class DetectorConsumer:
 
         trace_id = data["trace_id"]
         span_id = data["span_id"]
+        agent_id = data.get("agent_id", "")
+        span_type = data.get("type", "")
+        tool_name = data.get("name", "")
         raw_input = data.get("raw_input", "")
         raw_output = data.get("raw_output", "")
 
@@ -102,16 +109,21 @@ class DetectorConsumer:
 
         detections: list[Detection] = []
 
-        # Run detectors in thread pool (CPU-bound)
+        # Run detectors in thread pool (CPU-bound). Moderation scans the model
+        # OUTPUT; tool_guard inspects tool_call spans (name + args).
         loop = asyncio.get_event_loop()
-        secret_hits, pii_hits, injection_hits = await asyncio.gather(
+        secret_hits, pii_hits, injection_hits, moderation_hits, tool_hits = await asyncio.gather(
             loop.run_in_executor(None, self.secrets.scan, content),
             loop.run_in_executor(None, self.pii.scan, content),
             loop.run_in_executor(None, self.injection.scan, content),
+            loop.run_in_executor(None, self.moderation.scan, raw_output or content),
+            loop.run_in_executor(None, self.tool_guard.scan, span_type, tool_name, content),
         )
         detections.extend(secret_hits)
         detections.extend(pii_hits)
         detections.extend(injection_hits)
+        detections.extend(moderation_hits)
+        detections.extend(tool_hits)
 
         if detections:
             risk_score = self._compute_risk(detections)
@@ -119,6 +131,7 @@ class DetectorConsumer:
             result = {
                 "trace_id": trace_id,
                 "span_id": span_id,
+                "agent_id": agent_id,
                 "org_id": data.get("org_id", ""),
                 "project_id": data.get("project_id", ""),
                 "risk_score": risk_score,

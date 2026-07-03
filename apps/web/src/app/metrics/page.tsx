@@ -21,6 +21,8 @@ import { useMetrics, useAgents, useCosts } from "@/lib/hooks";
 import { MetricPoint } from "@/lib/api";
 import { PageHeader, Card, StatCard } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/Select";
+import { SourceFilter } from "@/components/ui/SourceFilter";
+import { SourceScope } from "@/lib/api";
 
 const WINDOWS: { label: string; window: number; interval: number }[] = [
   { label: "1h", window: 3600, interval: 60 },
@@ -40,9 +42,10 @@ export default function MetricsPage() {
   const [w, setW] = useState(WINDOWS[1]);
   const [agentId, setAgentId] = useState("");
   const [model, setModel] = useState("");
+  const [source, setSource] = useState<"" | SourceScope>("");
   const [compare, setCompare] = useState(false);
 
-  const base = { windowSec: w.window, intervalSec: w.interval, agentId: agentId || undefined, model: model || undefined };
+  const base = { windowSec: w.window, intervalSec: w.interval, agentId: agentId || undefined, model: model || undefined, source: source || undefined };
   const { data, isLoading, error } = useMetrics(base);
   const { data: prevData } = useMetrics({ ...base, offsetSec: w.window }, compare);
   const { data: agentsData } = useAgents();
@@ -121,6 +124,7 @@ export default function MetricsPage() {
           className="min-w-[150px]"
           options={[{ value: "", label: "All models" }, ...models.map((m) => ({ value: m.model, label: m.model }))]}
         />
+        {!agentId && <SourceFilter value={source} onChange={setSource} />}
         <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
           <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} className="accent-gray-900 dark:accent-white" />
           Compare to previous period

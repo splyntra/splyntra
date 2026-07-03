@@ -56,19 +56,28 @@ export interface TraceListResponse {
   offset?: number;
 }
 
+// Source-domain scoping, shared across fleet views. "agent" = SDK agents only,
+// "platform" = orchestrator runs only; omit for all. `platform` narrows to one id.
+export type SourceScope = "agent" | "platform";
+
 export interface TraceQueryOpts {
   limit?: number;
   offset?: number;
   agentId?: string;
+  workflowId?: string;
   status?: string; // "ok" | "error"
   severity?: string; // "low" | "medium" | "high" | "critical"
   since?: number; // seconds
+  source?: SourceScope;
+  platform?: string;
 }
 
 export interface TraceListItem {
   trace_id: string;
   agent_id: string;
+  platform: string;
   workflow_id: string;
+  workflow_name: string;
   status: string;
   latency_ms: number;
   total_tokens: number;
@@ -87,7 +96,9 @@ export interface TraceDetailResponse {
   // trace exists; the detail view prefers this over recomputing from spans.
   trace?: {
     agent_id: string;
+    platform: string;
     workflow_id: string;
+    workflow_name: string;
     status: string;
     latency_ms: number;
     total_tokens: number;
@@ -124,6 +135,7 @@ export interface SpanItem {
 export interface DetectionItem {
   trace_id: string;
   span_id: string;
+  agent_id?: string;
   detector: string;
   category: string;
   severity: string;
@@ -138,9 +150,12 @@ export async function fetchTraces(opts: TraceQueryOpts = {}): Promise<TraceListR
   p.set("limit", String(opts.limit ?? 50));
   if (opts.offset) p.set("offset", String(opts.offset));
   if (opts.agentId) p.set("agent_id", opts.agentId);
+  if (opts.workflowId) p.set("workflow_id", opts.workflowId);
   if (opts.status) p.set("status", opts.status);
   if (opts.severity) p.set("severity", opts.severity);
   if (opts.since) p.set("since", String(opts.since));
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
   return apiGet<TraceListResponse>(withProject(`/v1/traces?${p.toString()}`));
 }
 
@@ -152,9 +167,12 @@ export async function fetchTrace(traceId: string): Promise<TraceDetailResponse> 
 export interface IncidentQueryOpts {
   limit?: number;
   offset?: number;
+  agentId?: string; // scope the feed to one agent (per-agent Trust view)
   detector?: string; // "pii" | "secrets" | "injection"
   severity?: string; // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" (floor)
   since?: number; // seconds
+  source?: SourceScope;
+  platform?: string;
 }
 export interface IncidentListResponse {
   incidents: DetectionItem[];
@@ -166,9 +184,12 @@ export async function fetchIncidents(opts: IncidentQueryOpts = {}): Promise<Inci
   const p = new URLSearchParams();
   p.set("limit", String(opts.limit ?? 50));
   if (opts.offset) p.set("offset", String(opts.offset));
+  if (opts.agentId) p.set("agent_id", opts.agentId);
   if (opts.detector) p.set("detector", opts.detector);
   if (opts.severity) p.set("severity", opts.severity);
   if (opts.since) p.set("since", String(opts.since));
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
   return apiGet<IncidentListResponse>(withProject(`/v1/security/incidents?${p.toString()}`));
 }
 
@@ -204,6 +225,96 @@ export interface AgentsResponse {
 export async function fetchAgents(windowSec?: number): Promise<AgentsResponse> {
   const q = windowSec ? `?window=${windowSec}` : "";
   return apiGet<AgentsResponse>(withProject(`/v1/agents${q}`));
+}
+
+// ─── Agent Platforms API (orchestrators) ──────────────────────────────────────
+
+// PlatformItem is one platform's run-level aggregate (Agent Platforms home). This
+// is the platform-domain analog of AgentItem; the API returns only platform runs.
+export interface PlatformItem {
+  platform: string;
+  run_count: number;
+  error_count: number;
+  workflow_count: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  total_tokens: number;
+  total_cost: number;
+  last_seen_at: string;
+}
+
+export interface PlatformsResponse {
+  platforms: PlatformItem[];
+  total: number;
+}
+
+// WorkflowItem is one workflow within a platform (Workflow Operations list).
+export interface WorkflowItem {
+  workflow_id: string;
+  workflow_name: string;
+  version: string;
+  run_count: number;
+  error_count: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  total_tokens: number;
+  total_cost: number;
+  last_seen_at: string;
+}
+
+export interface PlatformDetailResponse {
+  platform: string;
+  overview: PlatformItem | null;
+  workflows: WorkflowItem[];
+}
+
+export async function fetchPlatforms(windowSec?: number): Promise<PlatformsResponse> {
+  const q = windowSec ? `?window=${windowSec}` : "";
+  return apiGet<PlatformsResponse>(withProject(`/v1/platforms${q}`));
+}
+
+export async function fetchPlatform(platform: string, windowSec?: number): Promise<PlatformDetailResponse> {
+  const q = windowSec ? `?window=${windowSec}` : "";
+  return apiGet<PlatformDetailResponse>(withProject(`/v1/platforms/${encodeURIComponent(platform)}${q}`));
+}
+
+// ─── Agent profiles (Connect wizard) ──────────────────────────────────────────
+export interface AgentProfile {
+  agent_id: string;
+  name: string;
+  frameworks: string[];
+  providers: string[];
+  vectordbs: string[];
+  databases: string[];
+  guard_mode: string;
+  detectors: string[];
+  alerts_enabled: boolean;
+  api_key_id?: string;
+}
+export interface CreateAgentBody {
+  name: string;
+  agent_id?: string;
+  frameworks?: string[];
+  providers?: string[];
+  vectordbs?: string[];
+  databases?: string[];
+  guard_mode?: string;
+  detectors?: string[];
+  alerts_enabled?: boolean;
+}
+export interface CreateAgentResult {
+  agent_id: string;
+  api_key: string; // shown once
+  profile: AgentProfile;
+}
+export async function createAgent(body: CreateAgentBody): Promise<CreateAgentResult> {
+  return apiSend(withProject(`/v1/agents`), "POST", body);
+}
+export async function fetchAgentProfile(agentId: string): Promise<AgentProfile> {
+  return apiGet<AgentProfile>(withProject(`/v1/agents/${encodeURIComponent(agentId)}/profile`));
+}
+export async function updateAgentProfile(agentId: string, body: CreateAgentBody): Promise<void> {
+  await apiSend(withProject(`/v1/agents/${encodeURIComponent(agentId)}/profile`), "PATCH", body);
 }
 
 // ─── Costs API ──────────────────────────────────────────────────────────────
@@ -244,8 +355,18 @@ export interface CostsResponse {
   by_workflow: WorkflowCostItem[];
 }
 
-export async function fetchCosts(): Promise<CostsResponse> {
-  return apiGet<CostsResponse>(withProject(`/v1/costs`));
+export interface CostsQueryOpts {
+  agentId?: string;
+  source?: SourceScope;
+  platform?: string;
+}
+export async function fetchCosts(opts: CostsQueryOpts = {}): Promise<CostsResponse> {
+  const p = new URLSearchParams();
+  if (opts.agentId) p.set("agent_id", opts.agentId);
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
+  const qs = p.toString();
+  return apiGet<CostsResponse>(withProject(`/v1/costs${qs ? `?${qs}` : ""}`));
 }
 
 // ─── Model pricing (admin) ───────────────────────────────────────────────────
@@ -385,7 +506,40 @@ export interface MetricsQueryOpts {
   offsetSec?: number; // shift window back (period-over-period comparison)
   agentId?: string;
   model?: string;
+  source?: SourceScope;
+  platform?: string;
 }
+// ─── Span metrics (Tools & Retrieval / MCP servers) ───────────────────────────
+export interface SpanMetricGroup {
+  key: string; // tool/span name or mcp.server.name
+  count: number;
+  error_count: number;
+  flagged?: number; // detections on these spans (permission violations / risk)
+  avg_ms: number;
+  p95_ms: number;
+}
+export interface SpanMetricsResponse {
+  groups: SpanMetricGroup[];
+}
+export interface SpanMetricsOpts {
+  type?: string; // tool_call | retrieval | vector_search | db
+  group?: "name" | "mcp_server";
+  since?: number;
+  server?: string; // narrow to one MCP server (mcp.server.name)
+  source?: SourceScope;
+  platform?: string;
+}
+export async function fetchSpanMetrics(opts: SpanMetricsOpts = {}): Promise<SpanMetricsResponse> {
+  const p = new URLSearchParams();
+  if (opts.type) p.set("type", opts.type);
+  if (opts.group) p.set("group", opts.group);
+  if (opts.since) p.set("since", String(opts.since));
+  if (opts.server) p.set("server", opts.server);
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
+  return apiGet<SpanMetricsResponse>(withProject(`/v1/metrics/spans?${p.toString()}`));
+}
+
 export async function fetchMetrics(opts: MetricsQueryOpts = {}): Promise<MetricsResponse> {
   const p = new URLSearchParams();
   p.set("window", String(opts.windowSec ?? 86400));
@@ -393,6 +547,8 @@ export async function fetchMetrics(opts: MetricsQueryOpts = {}): Promise<Metrics
   if (opts.offsetSec) p.set("offset", String(opts.offsetSec));
   if (opts.agentId) p.set("agent_id", opts.agentId);
   if (opts.model) p.set("model", opts.model);
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
   return apiGet<MetricsResponse>(withProject(`/v1/metrics?${p.toString()}`));
 }
 

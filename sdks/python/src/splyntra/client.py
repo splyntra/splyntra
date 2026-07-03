@@ -35,11 +35,15 @@ class Splyntra:
         framework: Optional[str] = None,
         redact_by_default: bool = True,
         instrument: Optional[tuple] = None,
+        guard: str = "off",
+        guard_fail_open: bool = True,
     ):
         if not api_key:
             raise ValueError("Splyntra: api_key is required")
         if not project:
             raise ValueError("Splyntra: project is required")
+        if guard not in ("off", "monitor", "block"):
+            raise ValueError("Splyntra: guard must be 'off', 'monitor', or 'block'")
 
         self._api_key = api_key
         self.project = project
@@ -69,6 +73,11 @@ class Splyntra:
 
         self._provider = provider
         self._tracer = trace.get_tracer("splyntra", __import__("splyntra").__version__)
+
+        # Configure the inline guardrail (used by the instrumentors' pre-flight hook).
+        from splyntra import guard as _guard
+
+        _guard.configure(mode=guard, fail_open=guard_fail_open, endpoint=self.endpoint, api_key=self._api_key)
 
         if instrument:
             from splyntra.instrumentors import instrument as _instrument

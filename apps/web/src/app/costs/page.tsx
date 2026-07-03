@@ -1,17 +1,35 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 "use client";
 
+import { useState } from "react";
 import { useCosts } from "@/lib/hooks";
-import { CostModelItem, ProjectCostItem, WorkflowCostItem } from "@/lib/api";
+import { CostModelItem, ProjectCostItem, WorkflowCostItem, SourceScope } from "@/lib/api";
 import { DollarSign, Coins, Hash, Calculator } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/ui/primitives";
+import { SourceFilter } from "@/components/ui/SourceFilter";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
 import { BudgetsSection } from "./BudgetsSection";
 import { PricingEditor } from "./PricingEditor";
 
 export default function CostsPage() {
-  const { data, isLoading, error } = useCosts();
+  const [source, setSource] = useState<"" | SourceScope>("");
+  const { data, isLoading, error } = useCosts({ source: source || undefined });
 
   const models: CostModelItem[] = data?.models || [];
+  const mtc = useTableControls(models, {
+    searchText: (m) => m.model,
+    sortAccessors: {
+      model: (m) => m.model.toLowerCase(),
+      calls: (m) => m.call_count,
+      prompt: (m) => m.total_prompt_tokens,
+      completion: (m) => m.total_completion_tokens,
+      cost: (m) => m.total_cost,
+      avg: (m) => m.avg_cost_per_call,
+    },
+    initialSort: { key: "cost", dir: "desc" },
+    pageSize: 10,
+  });
   const byProject: ProjectCostItem[] = data?.by_project || [];
   const byWorkflow: WorkflowCostItem[] = data?.by_workflow || [];
   const summary = data?.summary || { total_cost: 0, total_calls: 0, total_tokens: 0, avg_cost_per_call: 0 };
@@ -24,7 +42,12 @@ export default function CostsPage() {
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
-      <PageHeader icon={DollarSign} title="Costs" subtitle="Token spend by run, model, and project" />
+      <PageHeader
+        icon={DollarSign}
+        title="Costs"
+        subtitle="Token spend by run, model, and project"
+        action={<SourceFilter value={source} onChange={setSource} size="md" />}
+      />
       {!hasRealData && !isLoading && (
         <p className="-mt-2 mb-4 text-xs text-amber-600">
           No cost data yet — send LLM traces with model info to see cost breakdown.
@@ -123,6 +146,12 @@ export default function CostsPage() {
       )}
 
       {/* Detailed table */}
+      {models.length > 0 && (
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cost detail by model</h2>
+          <SearchInput value={mtc.q} onChange={mtc.setQ} placeholder="Search models…" className="max-w-xs" />
+        </div>
+      )}
       <div className="bg-white dark:bg-gray-900 rounded-lg border overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-500">Loading costs...</div>
@@ -130,20 +159,23 @@ export default function CostsPage() {
           <div className="p-8 text-center text-gray-500">
             No LLM usage data yet. Send traces with model information to see cost analytics.
           </div>
+        ) : mtc.total === 0 ? (
+          <div className="p-8 text-center text-gray-500">No models match your search.</div>
         ) : (
+          <>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Model</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Calls</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Prompt Tokens</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Completion Tokens</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Total Cost</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Avg/Call</th>
+                <SortableTh label="Model" sortKey="model" sort={mtc.sort} onSort={mtc.toggleSort} />
+                <SortableTh label="Calls" sortKey="calls" sort={mtc.sort} onSort={mtc.toggleSort} align="right" />
+                <SortableTh label="Prompt Tokens" sortKey="prompt" sort={mtc.sort} onSort={mtc.toggleSort} align="right" />
+                <SortableTh label="Completion Tokens" sortKey="completion" sort={mtc.sort} onSort={mtc.toggleSort} align="right" />
+                <SortableTh label="Total Cost" sortKey="cost" sort={mtc.sort} onSort={mtc.toggleSort} align="right" />
+                <SortableTh label="Avg/Call" sortKey="avg" sort={mtc.sort} onSort={mtc.toggleSort} align="right" />
               </tr>
             </thead>
             <tbody className="divide-y">
-              {models.map((m) => (
+              {mtc.view.map((m) => (
                 <tr key={m.model} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-4 py-3 font-medium font-mono text-xs">{m.model}</td>
                   <td className="px-4 py-3 text-right text-gray-600">
@@ -179,6 +211,8 @@ export default function CostsPage() {
               </tr>
             </tfoot>
           </table>
+          <TablePagination page={mtc.page} pageCount={mtc.pageCount} pageSize={mtc.pageSize} total={mtc.total} onPage={mtc.setPage} unit="model" />
+          </>
         )}
       </div>
 

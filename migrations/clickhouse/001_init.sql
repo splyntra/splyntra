@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS splyntra.traces (
     project_id String,
     environment String,
     agent_id String,
+    platform String DEFAULT '',              -- '' = SDK agent; else the platform id (dify/n8n/…)
     workflow_id String DEFAULT '',
+    workflow_name String DEFAULT '',
+    workflow_version String DEFAULT '',
     status Enum8('ok' = 1, 'error' = 2),
     latency_ms UInt32,
     total_tokens UInt32 DEFAULT 0,
@@ -36,6 +39,7 @@ CREATE TABLE IF NOT EXISTS splyntra.traces (
 
     -- Partition and sort for efficient queries
     INDEX idx_agent_id agent_id TYPE bloom_filter GRANULARITY 4,
+    INDEX idx_platform platform TYPE set(0) GRANULARITY 1,
     INDEX idx_risk risk_score TYPE minmax GRANULARITY 4
 )
 -- ReplacingMergeTree makes ingestion idempotent (TRD §14): a re-sent trace has
@@ -54,7 +58,7 @@ CREATE TABLE IF NOT EXISTS splyntra.spans (
     parent_span_id String DEFAULT '',
     org_id String,
     project_id String,
-    type Enum8('agent' = 1, 'llm_call' = 2, 'tool_call' = 3, 'step' = 4),
+    type Enum8('agent' = 1, 'llm_call' = 2, 'tool_call' = 3, 'step' = 4, 'retrieval' = 5, 'db' = 6, 'vector_search' = 7),
     name String,
     status Enum8('ok' = 1, 'error' = 2),
     latency_ms UInt32,
@@ -88,7 +92,11 @@ CREATE TABLE IF NOT EXISTS splyntra.detections (
     span_id String,
     org_id String,
     project_id String,
-    detector Enum8('pii' = 1, 'secrets' = 2, 'injection' = 3),
+    -- agent_id is denormalized from the owning trace so the per-agent Trust view
+    -- can filter detections directly (no join back to traces). Threaded through
+    -- the detect message → detector service → result, set at ingest time.
+    agent_id String DEFAULT '',
+    detector Enum8('pii' = 1, 'secrets' = 2, 'injection' = 3, 'moderation' = 4, 'tool_guard' = 5),
     category String,
     severity Enum8('LOW' = 1, 'MEDIUM' = 2, 'HIGH' = 3, 'CRITICAL' = 4),
     confidence Float32,
@@ -97,7 +105,8 @@ CREATE TABLE IF NOT EXISTS splyntra.detections (
     detected_at DateTime64(3) DEFAULT now64(3),
 
     INDEX idx_severity severity TYPE set(4) GRANULARITY 1,
-    INDEX idx_detector detector TYPE set(3) GRANULARITY 1
+    INDEX idx_detector detector TYPE set(3) GRANULARITY 1,
+    INDEX idx_agent agent_id TYPE bloom_filter GRANULARITY 1
 )
 -- Idempotent: dedup identity is the finding itself (trace+span+detector+
 -- category), NOT the insert-time detected_at — so re-detecting a re-ingested

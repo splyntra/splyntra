@@ -1,27 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { patchDual, pick } from "./patch";
 
 /**
- * Auto-instrument the OpenAI Agents SDK (`@openai/agents`). Wraps Runner.run /
- * Runner.runSync to emit a root `agent` span, mirroring the Python adapter.
- * Best-effort: a safe no-op if the package is absent or its internals moved.
- * Returns true if instrumentation was applied.
+ * Auto-instrument the OpenAI Agents SDK (`@openai/agents`, or the `openai-agents`
+ * alias). Wraps Runner.run / Runner.runSync to emit a root `agent` span,
+ * mirroring the Python adapter. Best-effort: a safe no-op if the package is
+ * absent or its internals moved. Patches both the CJS and ESM builds (see ./patch).
+ *
+ * Returns true if the synchronous CJS patch was applied.
  */
 export function instrumentOpenAIAgents(): boolean {
-  let mod: any;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    mod = require("@openai/agents");
-  } catch {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      mod = require("openai-agents");
-    } catch {
-      return false;
-    }
-  }
+  return patchDual(["@openai/agents", "openai-agents"], patchOpenAIAgents);
+}
 
-  const Runner = mod?.Runner ?? mod?.run?.Runner;
+function patchOpenAIAgents(mod: unknown): boolean {
+  const run = pick(mod, "run") as Record<string, unknown> | undefined;
+  const Runner = (pick(mod, "Runner") ?? run?.Runner) as { prototype?: any } | undefined;
   const proto = Runner?.prototype;
   if (!proto) return false;
 

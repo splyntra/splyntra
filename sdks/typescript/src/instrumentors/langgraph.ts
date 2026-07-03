@@ -1,30 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { patchDual, pick } from "./patch";
 
 /**
  * Auto-instrument LangGraph.js (`@langchain/langgraph`). Wraps compiled-graph
  * `invoke` to emit a root `agent` span; nested LLM spans come from the OpenAI
  * instrumentor. Best-effort: a safe no-op if the package is absent or its
- * internals have moved.
+ * internals have moved. Patches both the CJS and ESM builds (see ./patch).
  *
- * Returns true if instrumentation was applied.
+ * Returns true if the synchronous CJS patch was applied.
  */
 export function instrumentLangGraph(): boolean {
-  let lg: any;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    lg = require("@langchain/langgraph");
-  } catch {
-    return false;
-  }
+  return patchDual(["@langchain/langgraph"], patchLangGraph);
+}
 
-  const Compiled = lg?.CompiledStateGraph ?? lg?.CompiledGraph;
+function patchLangGraph(mod: unknown): boolean {
+  const Compiled = (pick(mod, "CompiledStateGraph") ?? pick(mod, "CompiledGraph")) as
+    | { prototype?: Record<string, unknown> }
+    | undefined;
   const proto = Compiled?.prototype;
-  if (!proto || typeof proto.invoke !== "function" || proto.invoke.__splyntraWrapped) {
+  if (!proto || typeof proto.invoke !== "function" || (proto.invoke as { __splyntraWrapped?: boolean }).__splyntraWrapped) {
     return false;
   }
 
-  const original = proto.invoke;
+  const original = proto.invoke as (...args: unknown[]) => unknown;
   function patched(this: any, ...args: any[]) {
     const name = this?.name || "langgraph";
     const tracer = trace.getTracer("splyntra.langgraph");

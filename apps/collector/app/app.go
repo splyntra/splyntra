@@ -27,6 +27,8 @@ import (
 	"github.com/splyntra/splyntra/apps/collector/extension"
 	"github.com/splyntra/splyntra/apps/collector/internal/alerts"
 	"github.com/splyntra/splyntra/apps/collector/internal/auth"
+	"github.com/splyntra/splyntra/apps/collector/internal/export"
+	"github.com/splyntra/splyntra/apps/collector/internal/guard"
 	"github.com/splyntra/splyntra/apps/collector/internal/ingest"
 	"github.com/splyntra/splyntra/apps/collector/internal/notify"
 	"github.com/splyntra/splyntra/apps/collector/internal/store"
@@ -124,6 +126,11 @@ func Run() {
 			logger.Warn("detection consumer not available", zap.Error(err))
 		} else {
 			detConsumer.SetAlertEvaluator(alertEngine)
+			// Optional outbound export to a SIEM / Datadog / Splunk / webhook.
+			if fw := export.NewWebhook(cfg.ExportURL, cfg.ExportToken, logger); fw != nil {
+				detConsumer.SetExporter(fw)
+				logger.Info("detection export enabled", zap.String("url", cfg.ExportURL))
+			}
 			defer detConsumer.Close()
 			if err := detConsumer.Start(context.Background()); err != nil {
 				logger.Error("detection consumer start failed", zap.Error(err))
@@ -133,6 +140,7 @@ func Run() {
 
 	handler := ingest.NewHandler(logger, tenantResolver, publisher, chStore, pgStore)
 	queryHandler := ingest.NewQueryHandler(logger, chStore, pgStore)
+	guardHandler := guard.NewHandler(logger)
 
 	// Router
 	r := chi.NewRouter()
@@ -220,12 +228,32 @@ func Run() {
 		// Out-of-process integration webhooks
 		r.Post("/integrations/dify", handler.ReceiveDify)
 		r.Post("/integrations/n8n", handler.ReceiveN8N)
+		r.Post("/integrations/flowise", handler.ReceiveFlowise)
+		r.Post("/integrations/bedrock", handler.ReceiveBedrock)
+		r.Post("/integrations/vertex", handler.ReceiveVertex)
+		r.Post("/integrations/openclaw", handler.ReceiveOpenClaw)
+		r.Post("/integrations/langflow", handler.ReceiveLangflow)
+		// Inline content guardrail (SDK pre-flight): fast Go engine, open-core.
+		// NOTE: /v1/authorize and /v1/ledger are intentionally NOT registered here
+		// — they are governance (policy + audit) endpoints owned by the commercial
+		// governance extension module (splyntra-cloud ee/governance). Registering
+		// them in the core would collide with that module and is a cloud feature.
+		r.Post("/guard", guardHandler.Guard)
 		// Query endpoints (dashboard uses these)
 		r.Get("/traces", queryHandler.ListTraces)
 		r.Get("/traces/{traceID}", queryHandler.GetTrace)
 		r.Get("/agents", queryHandler.ListAgents)
+		// Agent profiles (Connect wizard): create mints an ingest key + returns it once.
+		r.Post("/agents", queryHandler.CreateAgent)
+		r.Get("/agents/{agentID}/profile", queryHandler.GetAgentProfile)
+		r.Patch("/agents/{agentID}/profile", queryHandler.UpdateAgentProfile)
+		r.Delete("/agents/{agentID}/profile", queryHandler.DeleteAgentProfile)
+		// Agent Platforms (orchestrators): platform-scoped run/workflow aggregates.
+		r.Get("/platforms", queryHandler.ListPlatforms)
+		r.Get("/platforms/{platform}", queryHandler.GetPlatform)
 		r.Get("/costs", queryHandler.ListCosts)
 		r.Get("/metrics", queryHandler.ListMetrics)
+		r.Get("/metrics/spans", queryHandler.ListSpanMetrics)
 		r.Get("/security/incidents", queryHandler.ListSecurityIncidents)
 		r.Get("/projects", queryHandler.ListProjects)
 		// Provisioning (requires an "admin"-scoped key): projects + API keys
@@ -299,6 +327,8 @@ type Config struct {
 	ValkeyAddr    string
 	RateLimitRPS  int
 	CORSOrigins   []string
+	ExportURL     string // outbound SIEM/webhook sink for detections (empty = off)
+	ExportToken   string // optional bearer token for the export sink
 }
 
 func loadConfig() Config {
@@ -311,6 +341,8 @@ func loadConfig() Config {
 		ValkeyAddr:    envStr("VALKEY_ADDR", "localhost:6379"),
 		RateLimitRPS:  envInt("RATE_LIMIT_RPS", 1000),
 		CORSOrigins:   strings.Split(origins, ","),
+		ExportURL:     envStr("SPLYNTRA_EXPORT_URL", ""),
+		ExportToken:   envStr("SPLYNTRA_EXPORT_TOKEN", ""),
 	}
 }
 

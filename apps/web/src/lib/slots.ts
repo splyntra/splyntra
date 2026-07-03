@@ -15,6 +15,8 @@ export interface NavSlotItem {
   icon: string;
   /** Optional feature flag that must be enabled for this item to render. */
   feature?: string;
+  /** Sidebar section to place this item in (defaults to "observability"). */
+  section?: "agents" | "platforms" | "mcp" | "observability" | "settings";
 }
 
 const navItems: NavSlotItem[] = [];
@@ -35,9 +37,9 @@ export function navSlotItems(): readonly NavSlotItem[] {
 // (e.g. the org switcher in the sidebar). Empty in OSS.
 import type { ComponentType } from "react";
 
-export type WidgetSlot = "sidebarTop";
+export type WidgetSlot = "sidebarTop" | "agentTrustGovernance";
 
-const widgets: Record<WidgetSlot, ComponentType[]> = { sidebarTop: [] };
+const widgets: Record<WidgetSlot, ComponentType[]> = { sidebarTop: [], agentTrustGovernance: [] };
 
 /** Mount a component into a named widget slot. Called by commercial packages. */
 export function registerWidget(slot: WidgetSlot, component: ComponentType): void {

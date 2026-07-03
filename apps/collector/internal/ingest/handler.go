@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -46,6 +47,13 @@ func NewHandler(logger *zap.Logger, resolver *tenant.Resolver, publisher *stream
 		pg:             pgStore,
 		redactor:       redact.NewRedactor(),
 	}
+}
+
+// vectorStores maps OTel db.system values that are vector databases, so their
+// spans are classified as vector_search rather than a generic db call.
+var vectorStores = map[string]bool{
+	"pinecone": true, "weaviate": true, "qdrant": true, "milvus": true,
+	"chroma": true, "chromadb": true, "pgvector": true,
 }
 
 // frameworkByTrace carries the framework label discovered per trace during
@@ -122,6 +130,12 @@ func (h *Handler) persistTraces(ctx context.Context, traceEvents []*streaming.Tr
 	for _, traceEvt := range traceEvents {
 		spanCount += len(traceEvt.Spans)
 
+		// Denormalize the trace's agent onto each span so the detect message
+		// carries it through to the detections table (per-agent Trust view).
+		for i := range traceEvt.Spans {
+			traceEvt.Spans[i].AgentID = traceEvt.AgentID
+		}
+
 		// 1. Publish to NATS for async processing (detection)
 		if h.publisher != nil {
 			if err := h.publisher.PublishTrace(ctx, traceEvt); err != nil {
@@ -144,8 +158,11 @@ func (h *Handler) persistTraces(ctx context.Context, traceEvents []*streaming.Tr
 			}
 		}
 
-		// 3. Register agent metadata (best-effort, never blocks ingest)
-		if h.pg != nil && traceEvt.AgentID != "" && traceEvt.AgentID != "unknown" {
+		// 3. Register agent metadata (best-effort, never blocks ingest).
+		//    Platform (orchestrator) runs carry a non-empty Platform and are NOT
+		//    real agents — they belong to the Agent Platforms domain, so we never
+		//    register them in the agent registry (keeps Agents = SDK agents only).
+		if h.pg != nil && traceEvt.Platform == "" && traceEvt.AgentID != "" && traceEvt.AgentID != "unknown" {
 			h.pg.UpsertAgent(ctx, traceEvt.OrgID, traceEvt.ProjectID, traceEvt.AgentID, frameworks[traceEvt.TraceID])
 		}
 	}
@@ -199,24 +216,66 @@ func (h *Handler) otlpToTraceEvents(req *coltracepb.ExportTraceServiceRequest, t
 				model := ""
 				var promptTokens, completionTokens uint32
 
+				// Read Splyntra's own attributes AND the OTel GenAI semantic
+				// conventions (plus OpenLLMetry's traceloop.* keys), so spans from
+				// third-party OTel GenAI instrumentation — OpenLLMetry, and the
+				// hyperscaler agent platforms (Bedrock/Vertex) that emit gen_ai.* —
+				// ingest with correct model/tokens/IO. Splyntra keys win when both
+				// are present.
+				var genaiSystem, dbSystem string
 				for _, attr := range span.Attributes {
 					switch attr.Key {
 					case "splyntra.span.type":
 						spanType = attr.Value.GetStringValue()
+					case "gen_ai.system":
+						genaiSystem = attr.Value.GetStringValue()
+					case "db.system":
+						dbSystem = attr.Value.GetStringValue()
+					case "db.statement", "db.query.text":
+						if rawInput == "" {
+							rawInput = attr.Value.GetStringValue() // so tool_guard can scan SQL
+						}
 					case "gen_ai.request.model":
 						model = attr.Value.GetStringValue()
-						if spanType == "step" {
-							spanType = "llm_call"
+					case "gen_ai.response.model":
+						if model == "" {
+							model = attr.Value.GetStringValue()
 						}
-					case "gen_ai.usage.prompt_tokens":
-						promptTokens = uint32(attr.Value.GetIntValue())
-					case "gen_ai.usage.completion_tokens":
-						completionTokens = uint32(attr.Value.GetIntValue())
+					case "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens":
+						if promptTokens == 0 {
+							promptTokens = uint32(attr.Value.GetIntValue())
+						}
+					case "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens":
+						if completionTokens == 0 {
+							completionTokens = uint32(attr.Value.GetIntValue())
+						}
 					case "splyntra.input":
 						rawInput = attr.Value.GetStringValue()
+					case "gen_ai.prompt", "traceloop.entity.input":
+						if rawInput == "" {
+							rawInput = attr.Value.GetStringValue()
+						}
 					case "splyntra.output":
 						rawOutput = attr.Value.GetStringValue()
+					case "gen_ai.completion", "traceloop.entity.output":
+						if rawOutput == "" {
+							rawOutput = attr.Value.GetStringValue()
+						}
 					}
+				}
+				// Classify data operations from OTel db.* semconv when the SDK didn't
+				// set an explicit span type: vector stores → vector_search, else db.
+				if spanType == "step" && dbSystem != "" {
+					if vectorStores[strings.ToLower(dbSystem)] {
+						spanType = "vector_search"
+					} else {
+						spanType = "db"
+					}
+				}
+				// Promote an unclassified span to an LLM call when GenAI semconv
+				// marks it as one (a model or provider is present).
+				if spanType == "step" && (model != "" || genaiSystem != "") {
+					spanType = "llm_call"
 				}
 
 				// Apply early redaction

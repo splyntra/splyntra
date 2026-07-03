@@ -1,31 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 import { trace, SpanKind, SpanStatusCode, Span } from "@opentelemetry/api";
+import { patchDual, pick } from "./patch";
 
 /**
  * Auto-instrument CrewAI.js. Wraps Crew.kickoff (agent span), Task.execute
  * (step span), and BaseTool.run (tool_call span) to emit nested spans, mirroring
  * the Python CrewAI adapter. Best-effort: a safe no-op if the package is absent
- * or its internals have moved. Returns true if any method was wrapped.
+ * or its internals have moved. Patches both the CJS and ESM builds (see ./patch).
+ *
+ * Returns true if the synchronous CJS patch wrapped at least one method.
  */
 export function instrumentCrewAI(): boolean {
-  let crewai: any;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    crewai = require("crewai");
-  } catch {
-    return false;
-  }
+  return patchDual(["crewai"], patchCrewAI);
+}
+
+function patchCrewAI(mod: unknown): boolean {
+  const Crew = pick(mod, "Crew") as { prototype?: any } | undefined;
+  const Task = pick(mod, "Task") as { prototype?: any } | undefined;
+  const tools = pick(mod, "tools") as Record<string, unknown> | undefined;
+  const BaseTool = ((tools?.BaseTool ?? pick(mod, "BaseTool")) as { prototype?: any } | undefined);
 
   let wrapped = false;
-  wrapped = wrapMethod(crewai?.Crew?.prototype, ["kickoff", "kickoffAsync"], "agent", (self) => self?.name || "crew") || wrapped;
-  wrapped = wrapMethod(crewai?.Task?.prototype, ["execute", "executeAsync"], "step", (self) => self?.name || self?.description?.slice?.(0, 40) || "task") || wrapped;
-  const BaseTool = crewai?.tools?.BaseTool ?? crewai?.BaseTool;
+  wrapped = wrapMethod(Crew?.prototype, ["kickoff", "kickoffAsync"], "agent", (self) => self?.name || "crew") || wrapped;
+  wrapped =
+    wrapMethod(Task?.prototype, ["execute", "executeAsync"], "step", (self) => self?.name || self?.description?.slice?.(0, 40) || "task") ||
+    wrapped;
   wrapped = wrapMethod(BaseTool?.prototype, ["run", "_run"], "tool_call", (self) => self?.name || "tool") || wrapped;
   return wrapped;
 }
 
 // wrapMethod patches the first present method name on proto with a span-emitting
-// wrapper. Returns true if it wrapped one.
+// wrapper. Idempotent (skips already-wrapped methods). Returns true if it wrapped one.
 function wrapMethod(
   proto: any,
   methodNames: string[],

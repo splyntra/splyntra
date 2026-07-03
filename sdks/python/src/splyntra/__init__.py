@@ -5,6 +5,7 @@ from splyntra.client import Splyntra
 from splyntra.decorators import trace_agent, trace_tool, trace_llm
 from splyntra.instrumentors import instrument
 from splyntra.governance import authorize, log_action
+from splyntra.guard import SplyntraBlocked
 
 __all__ = [
     "Splyntra",
@@ -14,5 +15,6 @@ __all__ = [
     "instrument",
     "authorize",
     "log_action",
+    "SplyntraBlocked",
 ]
 __version__ = "1.1.0"  # x-release-please-version

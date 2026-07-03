@@ -1,0 +1,47 @@
+{
+  "name": "n8n-nodes-splyntra",
+  "version": "0.1.0",
+  "description": "Splyntra node for n8n — send workflow run telemetry (trace / cost / security) to Splyntra.",
+  "keywords": [
+    "n8n-community-node-package",
+    "splyntra",
+    "observability",
+    "agentops",
+    "tracing"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/splyntra/splyntra",
+  "author": "Splyntra",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/splyntra/splyntra.git",
+    "directory": "integrations/n8n-nodes-splyntra"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc && node scripts/copy-assets.mjs",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "index.js"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/SplyntraApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Splyntra/Splyntra.node.js"
+    ]
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "n8n-workflow": "^1.60.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.5.0"
+  }
+}

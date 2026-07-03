@@ -1,0 +1,24 @@
+{
+  "name": "openclaw-plugin-splyntra",
+  "version": "0.1.0",
+  "description": "Splyntra plugin for OpenClaw — sends agent session telemetry (trace / cost / security) to Splyntra.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "keywords": ["openclaw", "openclaw-plugin", "splyntra", "observability", "agentops"],
+  "homepage": "https://github.com/splyntra/splyntra",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/splyntra/splyntra.git",
+    "directory": "integrations/openclaw-plugin-splyntra"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    }
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.24-beta.2"
+  }
+}

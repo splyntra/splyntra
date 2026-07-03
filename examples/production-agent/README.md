@@ -7,14 +7,14 @@ A **deployable** AI agent service instrumented with [`@splyntra/sdk`](https://ww
 - **Client-side redaction on** — secrets are stripped from spans before export (`redactByDefault: true`).
 - **Resilience** — per-request timeout with real cancellation (`AbortController`), exponential-backoff retries that skip non-retriable (4xx / timeout) errors, and graceful degradation when the model returns junk.
 - **Operable HTTP service** — `/healthz` + `/readyz` probes, body-size limits, structured JSON logs with a request id, and a **graceful SIGTERM drain that flushes telemetry** before exit (it takes over the signal handlers the SDK installs).
-- **Runs with or without OpenAI** — set `OPENAI_API_KEY` to call OpenAI for real (auto-instrumented); leave it unset to run a labeled simulated completion so traces still flow.
+- **Pluggable LLM, one instrumentation path** — set `GEMINI_API_KEY` (Google Gemini 2.5 Flash) or `OPENAI_API_KEY` to call a real model; leave both unset for a labeled simulated completion so traces still flow. Gemini uses its OpenAI-compatible endpoint, so the *same* `openai` auto-instrumentor captures it with token usage — no provider-specific code.
 
 ## Architecture
 
 ```
 POST /triage ─▶ support_triage_agent            (wrapAgent · workflow "support-triage")
                  ├─ crm.lookup_customer          (wrapTool)
-                 └─ classify + draft reply       (OpenAI, auto-instrumented · or simulated wrapLLM)
+                 └─ classify + draft reply       (Gemini/OpenAI, auto-instrumented · or simulated wrapLLM)
 ```
 
 Each box is a span. Open the dashboard at `/traces` to see the tree, token usage/cost on the LLM span, and `ERROR` status with the recorded exception on any step that throws.
@@ -51,7 +51,7 @@ curl -s -X POST localhost:8080/triage \
 #   "priority": "urgent",
 #   "customerTier": "pro",
 #   "draftReply": "…",
-#   "model": "gpt-4o-mini",
+#   "model": "gemini-2.5-flash",
 #   "simulated": false
 # }
 ```
@@ -61,6 +61,16 @@ Open <http://localhost:3000/traces> to see the trace.
 ## Configuration
 
 All via environment (see [.env.example](.env.example)). Required: `SPLYNTRA_API_KEY`, `SPLYNTRA_PROJECT`. In `NODE_ENV=production` the service **refuses to start** with the shared dev key or a non-HTTPS remote endpoint.
+
+**LLM provider** — precedence is Gemini → OpenAI → simulated:
+
+| Env | Provider | Default model |
+|-----|----------|---------------|
+| `GEMINI_API_KEY` | Google Gemini (OpenAI-compatible endpoint) | `gemini-2.5-flash` |
+| `OPENAI_API_KEY` | OpenAI | `gpt-4o-mini` |
+| *(neither)* | Simulated (`wrapLLM`) | `simulated-triage-v1` |
+
+Get a Gemini key at <https://aistudio.google.com/apikey>. Cost on the LLM span is computed from the collector's model-pricing table — add a price for `gemini-2.5-flash` under **Costs → Manage model pricing** (else its spend records as `$0`).
 
 ## Deploy
 

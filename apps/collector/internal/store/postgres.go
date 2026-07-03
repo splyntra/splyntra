@@ -126,6 +126,126 @@ func (s *PostgresStore) AgentMetaByID(ctx context.Context, orgID, projectID stri
 	return out, rows.Err()
 }
 
+// ─── Agent profiles (Connect wizard config) ─────────────────────────────────
+
+// AgentProfile is the persisted configuration of an explicitly-connected agent.
+type AgentProfile struct {
+	AgentID       string    `json:"agent_id"`
+	Name          string    `json:"name"`
+	Frameworks    []string  `json:"frameworks"`
+	Providers     []string  `json:"providers"`
+	VectorDBs     []string  `json:"vectordbs"`
+	Databases     []string  `json:"databases"`
+	GuardMode     string    `json:"guard_mode"`
+	Detectors     []string  `json:"detectors"`
+	AlertsEnabled bool      `json:"alerts_enabled"`
+	APIKeyID      string    `json:"api_key_id,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// scanStr coerces a nil slice to a non-nil empty array so it stores as '{}'
+// (the columns are NOT NULL DEFAULT '{}'), not SQL NULL.
+func scanStr(a []string) pq.StringArray {
+	if a == nil {
+		return pq.StringArray{}
+	}
+	return pq.StringArray(a)
+}
+
+// CreateAgentProfile inserts (or replaces) an agent's config; apiKeyID/alertID
+// link the minted ingest key + alert rule. Upsert on (org, project, agent_id).
+func (s *PostgresStore) CreateAgentProfile(ctx context.Context, orgID, projectID string, p *AgentProfile, apiKeyID, alertID string) error {
+	if s == nil || s.db == nil || !uuidRe.MatchString(orgID) {
+		return fmt.Errorf("metadata store unavailable")
+	}
+	var pid, keyID, alrtID any
+	if uuidRe.MatchString(projectID) {
+		pid = projectID
+	}
+	if uuidRe.MatchString(apiKeyID) {
+		keyID = apiKeyID
+	}
+	if uuidRe.MatchString(alertID) {
+		alrtID = alertID
+	}
+	guard := p.GuardMode
+	if guard == "" {
+		guard = "off"
+	}
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO agent_profiles (org_id, project_id, agent_id, name, frameworks, providers, vectordbs, databases, guard_mode, detectors, alerts_enabled, api_key_id, alert_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		ON CONFLICT (org_id, project_id, agent_id) DO UPDATE SET
+			name=EXCLUDED.name, frameworks=EXCLUDED.frameworks, providers=EXCLUDED.providers,
+			vectordbs=EXCLUDED.vectordbs, databases=EXCLUDED.databases, guard_mode=EXCLUDED.guard_mode,
+			detectors=EXCLUDED.detectors, alerts_enabled=EXCLUDED.alerts_enabled, updated_at=NOW()`,
+		orgID, pid, p.AgentID, p.Name, scanStr(p.Frameworks), scanStr(p.Providers), scanStr(p.VectorDBs),
+		scanStr(p.Databases), guard, scanStr(p.Detectors), p.AlertsEnabled, keyID, alrtID)
+	if err != nil {
+		return fmt.Errorf("create agent profile: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) GetAgentProfile(ctx context.Context, orgID, projectID, agentID string) (*AgentProfile, error) {
+	if s == nil || s.db == nil || !uuidRe.MatchString(orgID) {
+		return nil, sql.ErrNoRows
+	}
+	var p AgentProfile
+	var fw, pr, vs, db, det pq.StringArray
+	var keyID sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT agent_id, name, frameworks, providers, vectordbs, databases, guard_mode, detectors, alerts_enabled, COALESCE(api_key_id::text,''), created_at
+		FROM agent_profiles WHERE org_id=$1 AND project_id IS NOT DISTINCT FROM $2 AND agent_id=$3`,
+		orgID, nullableUUID(projectID), agentID).
+		Scan(&p.AgentID, &p.Name, &fw, &pr, &vs, &db, &p.GuardMode, &det, &p.AlertsEnabled, &keyID, &p.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	p.Frameworks, p.Providers, p.VectorDBs, p.Databases, p.Detectors = fw, pr, vs, db, det
+	p.APIKeyID = keyID.String
+	return &p, nil
+}
+
+func (s *PostgresStore) DeleteAgentProfile(ctx context.Context, orgID, projectID, agentID string) error {
+	if s == nil || s.db == nil {
+		return fmt.Errorf("metadata store unavailable")
+	}
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM agent_profiles WHERE org_id=$1 AND project_id IS NOT DISTINCT FROM $2 AND agent_id=$3`,
+		orgID, nullableUUID(projectID), agentID)
+	if err != nil {
+		return fmt.Errorf("delete agent profile: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// ConfiguredAgents returns the set of agent_ids that have a profile (for the list "configured" badge).
+func (s *PostgresStore) ConfiguredAgents(ctx context.Context, orgID, projectID string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if s == nil || s.db == nil || !uuidRe.MatchString(orgID) {
+		return out, nil
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT agent_id FROM agent_profiles WHERE org_id=$1 AND project_id IS NOT DISTINCT FROM $2`,
+		orgID, nullableUUID(projectID))
+	if err != nil {
+		return out, fmt.Errorf("configured agents: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return out, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
 // ─── Projects ─────────────────────────────────────────────────────────────
 
 // Project is a project row scoped to an organization.

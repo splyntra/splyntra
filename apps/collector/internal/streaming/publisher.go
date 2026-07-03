@@ -33,7 +33,10 @@ type TraceEvent struct {
 	ProjectID   string      `json:"project_id"`
 	Environment string      `json:"environment"`
 	AgentID     string      `json:"agent_id"`
+	Platform    string      `json:"platform,omitempty"`         // '' = agent; else platform id (dify/n8n/…)
 	WorkflowID  string      `json:"workflow_id,omitempty"`
+	WorkflowName    string  `json:"workflow_name,omitempty"`
+	WorkflowVersion string  `json:"workflow_version,omitempty"`
 	Spans       []SpanEvent `json:"spans"`
 	IngestedAt  time.Time   `json:"ingested_at"`
 }
@@ -45,6 +48,7 @@ type SpanEvent struct {
 	ParentSpanID     string            `json:"parent_span_id,omitempty"`
 	OrgID            string            `json:"org_id"`
 	ProjectID        string            `json:"project_id"`
+	AgentID          string            `json:"agent_id,omitempty"` // denormalized from the trace for per-agent detection keying
 	Type             string            `json:"type"` // agent, llm_call, tool_call, step
 	Name             string            `json:"name"`
 	Status           string            `json:"status"`

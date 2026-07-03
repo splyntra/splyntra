@@ -96,11 +96,13 @@ export function PageHeader({
   subtitle,
   icon: Icon,
   action,
+  badge,
 }: {
   title: string;
   subtitle?: string;
   icon?: LucideIcon;
   action?: ReactNode;
+  badge?: ReactNode;
 }) {
   return (
     <div className="mb-8 flex items-start justify-between gap-4">
@@ -111,7 +113,10 @@ export function PageHeader({
           </div>
         )}
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">{title}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">{title}</h1>
+            {badge}
+          </div>
           {subtitle && <p className="mt-1 text-[13px] text-gray-500 dark:text-gray-400">{subtitle}</p>}
         </div>
       </div>

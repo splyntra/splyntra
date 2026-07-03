@@ -35,12 +35,15 @@ class OpenAIInstrumentor(BaseInstrumentor):
         def patched_create(self_client, *args, **kwargs):
             model = kwargs.get("model", "unknown")
             is_stream = kwargs.get("stream", False)
+            # Inline guardrail pre-flight: may raise SplyntraBlocked before the call.
+            from .. import guard as _guard
+            _guard.enforce(_guard.extract_text(kwargs), "input")
             span = tracer.start_span(
                 f"openai.chat.{model}",
                 kind=trace.SpanKind.CLIENT,
                 attributes={
                     "splyntra.span.type": "llm_call",
-                    "gen_ai.system": "openai",
+                    "gen_ai.system": _provider_from_client(self_client),
                     "gen_ai.request.model": model,
                     "gen_ai.request.temperature": kwargs.get("temperature", 1.0),
                     "gen_ai.request.max_tokens": kwargs.get("max_tokens", 0),
@@ -71,12 +74,16 @@ class OpenAIInstrumentor(BaseInstrumentor):
         async def patched_async_create(self_client, *args, **kwargs):
             model = kwargs.get("model", "unknown")
             is_stream = kwargs.get("stream", False)
+            # Inline guardrail pre-flight (run the blocking check off the event loop).
+            import asyncio
+            from .. import guard as _guard
+            await asyncio.get_event_loop().run_in_executor(None, _guard.enforce, _guard.extract_text(kwargs), "input")
             span = tracer.start_span(
                 f"openai.chat.{model}",
                 kind=trace.SpanKind.CLIENT,
                 attributes={
                     "splyntra.span.type": "llm_call",
-                    "gen_ai.system": "openai",
+                    "gen_ai.system": _provider_from_client(self_client),
                     "gen_ai.request.model": model,
                     "gen_ai.request.temperature": kwargs.get("temperature", 1.0),
                     "gen_ai.request.max_tokens": kwargs.get("max_tokens", 0),
@@ -113,6 +120,32 @@ class OpenAIInstrumentor(BaseInstrumentor):
             openai.resources.chat.completions.Completions.create = self._original_create
         if hasattr(self, "_original_async_create"):
             openai.resources.chat.completions.AsyncCompletions.create = self._original_async_create
+
+
+# OpenAI-compatible providers set a custom base_url on the client; map the host
+# to the provider so traces + cost attribute to it (not "openai").
+_PROVIDER_HOSTS = (
+    ("api.groq.com", "groq"),
+    ("together.", "together"),
+    ("api.deepseek.com", "deepseek"),
+    ("openrouter.ai", "openrouter"),
+    ("api.x.ai", "xai"),
+    ("fireworks.ai", "fireworks"),
+    ("api.mistral.ai", "mistral"),
+    ("generativelanguage.googleapis", "gemini"),
+    ("api.cohere", "cohere"),
+)
+
+
+def _provider_from_client(self_client) -> str:
+    try:
+        base = str(getattr(getattr(self_client, "_client", None), "base_url", "") or "").lower()
+    except Exception:
+        base = ""
+    for frag, name in _PROVIDER_HOSTS:
+        if frag in base:
+            return name
+    return "openai"
 
 
 def _record_usage(span, result, start: float, model: str):

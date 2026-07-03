@@ -272,7 +272,7 @@ func (s *ClickHouseStore) flushTraces(traces []*streaming.TraceEvent) {
 
 	batch, err := s.conn.PrepareBatch(ctx, `
 		INSERT INTO traces (
-			trace_id, org_id, project_id, environment, agent_id, workflow_id,
+			trace_id, org_id, project_id, environment, agent_id, platform, workflow_id, workflow_name, workflow_version,
 			status, latency_ms, total_tokens, prompt_tokens, completion_tokens,
 			cost_usd, span_count, started_at, completed_at
 		)`)
@@ -312,7 +312,7 @@ func (s *ClickHouseStore) flushTraces(traces []*streaming.TraceEvent) {
 
 		if err := batch.Append(
 			trace.TraceID, trace.OrgID, trace.ProjectID, trace.Environment,
-			trace.AgentID, trace.WorkflowID,
+			trace.AgentID, trace.Platform, trace.WorkflowID, trace.WorkflowName, trace.WorkflowVersion,
 			traceStatus, totalLatency, totalTokens, totalPrompt, totalCompletion,
 			totalCost, spanCount, startedAt, trace.IngestedAt,
 		); err != nil {
@@ -369,10 +369,10 @@ func (s *ClickHouseStore) InsertTrace(ctx context.Context, trace *streaming.Trac
 func (s *ClickHouseStore) InsertDetection(ctx context.Context, d *Detection) error {
 	err := s.conn.Exec(ctx, `
 		INSERT INTO detections (
-			trace_id, span_id, org_id, project_id,
+			trace_id, span_id, org_id, project_id, agent_id,
 			detector, category, severity, confidence, description, is_beta
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		d.TraceID, d.SpanID, d.OrgID, d.ProjectID,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		d.TraceID, d.SpanID, d.OrgID, d.ProjectID, d.AgentID,
 		d.Detector, d.Category, d.Severity, d.Confidence, d.Description, d.IsBeta,
 	)
 	if err != nil {
@@ -388,6 +388,7 @@ type Detection struct {
 	SpanID      string
 	OrgID       string
 	ProjectID   string
+	AgentID     string
 	Detector    string
 	Category    string
 	Severity    string
@@ -401,12 +402,48 @@ type Detection struct {
 // mean "no filter". MinRisk filters on risk_score (>=); SinceSec bounds to the
 // trailing window.
 type TraceFilter struct {
-	Limit    int
-	Offset   int
-	AgentID  string
-	Status   string // "", "ok", "error"
-	MinRisk  int    // risk_score >= MinRisk
-	SinceSec int
+	Limit      int
+	Offset     int
+	AgentID    string
+	WorkflowID string
+	Status     string // "", "ok", "error"
+	MinRisk    int    // risk_score >= MinRisk
+	SinceSec   int
+	// Source-domain scoping (shared across trace/metric/incident/cost queries):
+	// Source "" = all, "agent" = SDK agents (platform=''), "platform" = any
+	// platform run (platform<>''). Platform, when set, narrows to that platform id.
+	Source   string
+	Platform string
+}
+
+// sourceWhere appends a platform-domain scoping clause to a WHERE fragment and
+// returns the extended clause + args. It is the single place the Agents vs Agent
+// Platforms separation is enforced at the query layer. An explicit platform id
+// wins over source; source "agent"→platform='', "platform"→platform<>'',
+// ""→no clause (fleet/all).
+func sourceWhere(where string, args []any, source, platform string) (string, []any) {
+	if platform != "" {
+		return where + " AND platform = ?", append(args, platform)
+	}
+	switch source {
+	case "agent":
+		return where + " AND platform = ''", args
+	case "platform":
+		return where + " AND platform <> ''", args
+	}
+	return where, args
+}
+
+// traceScopeSubquery returns an `AND trace_id IN (…)` clause (+ args) restricting
+// a detections/spans query to traces of a given source domain. Those tables don't
+// carry `platform`, so the domain filter is applied via a subquery on `traces`.
+// Returns "" when no scoping is requested (source "" and no platform id).
+func traceScopeSubquery(orgID, projectID, source, platform string) (string, []any) {
+	if platform == "" && source != "agent" && source != "platform" {
+		return "", nil
+	}
+	sw, swArgs := sourceWhere("org_id = ? AND project_id = ?", []any{orgID, projectID}, source, platform)
+	return " AND trace_id IN (SELECT trace_id FROM traces WHERE " + sw + ")", swArgs
 }
 
 // QueryTraces returns a page of traces matching the filter, plus the TOTAL count
@@ -419,6 +456,11 @@ func (s *ClickHouseStore) QueryTraces(ctx context.Context, orgID, projectID stri
 		where += " AND agent_id = ?"
 		args = append(args, f.AgentID)
 	}
+	if f.WorkflowID != "" {
+		where += " AND workflow_id = ?"
+		args = append(args, f.WorkflowID)
+	}
+	where, args = sourceWhere(where, args, f.Source, f.Platform)
 	if f.Status == "ok" || f.Status == "error" {
 		where += " AND status = ?"
 		args = append(args, f.Status)
@@ -448,7 +490,7 @@ func (s *ClickHouseStore) QueryTraces(ctx context.Context, orgID, projectID stri
 	pageArgs := append(append([]any{}, args...), limit, offset)
 	rows, err := s.conn.Query(ctx, `
 		SELECT
-			trace_id, agent_id, workflow_id, status, latency_ms,
+			trace_id, agent_id, platform, workflow_id, workflow_name, status, latency_ms,
 			total_tokens, cost_usd, risk_score, risk_severity,
 			detection_count, span_count, started_at, completed_at
 		FROM traces FINAL
@@ -466,7 +508,7 @@ func (s *ClickHouseStore) QueryTraces(ctx context.Context, orgID, projectID stri
 	for rows.Next() {
 		var t TraceRow
 		if err := rows.Scan(
-			&t.TraceID, &t.AgentID, &t.WorkflowID, &t.Status, &t.LatencyMs,
+			&t.TraceID, &t.AgentID, &t.Platform, &t.WorkflowID, &t.WorkflowName, &t.Status, &t.LatencyMs,
 			&t.TotalTokens, &t.CostUSD, &t.RiskScore, &t.RiskSeverity,
 			&t.DetectionCount, &t.SpanCount, &t.StartedAt, &t.CompletedAt,
 		); err != nil {
@@ -524,9 +566,12 @@ func (s *ClickHouseStore) QuerySpans(ctx context.Context, traceID, orgID, projec
 type IncidentFilter struct {
 	Limit       int
 	Offset      int
+	AgentID     string // scope the feed to a single agent (per-agent Trust view)
 	Detector    string // "pii" | "secrets" | "injection"
 	MinSeverity string // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" (>= comparison)
 	SinceSec    int
+	Source      string // "", "agent", "platform" — source-domain scoping
+	Platform    string // narrow to a single platform id
 }
 
 // QueryIncidents lists detections across all of a project's traces (the Security
@@ -535,6 +580,10 @@ type IncidentFilter struct {
 func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID string, f IncidentFilter) ([]DetectionRow, uint64, error) {
 	where := "org_id = ? AND project_id = ?"
 	args := []any{orgID, projectID}
+	if f.AgentID != "" {
+		where += " AND agent_id = ?"
+		args = append(args, f.AgentID)
+	}
 	if f.Detector != "" {
 		where += " AND detector = ?"
 		args = append(args, f.Detector)
@@ -546,6 +595,10 @@ func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID s
 	if f.SinceSec > 0 {
 		where += " AND detected_at >= now() - toIntervalSecond(?)"
 		args = append(args, f.SinceSec)
+	}
+	if clause, subArgs := traceScopeSubquery(orgID, projectID, f.Source, f.Platform); clause != "" {
+		where += clause
+		args = append(args, subArgs...)
 	}
 
 	var total uint64
@@ -564,7 +617,7 @@ func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID s
 	pageArgs := append(append([]any{}, args...), limit, offset)
 	rows, err := s.conn.Query(ctx, `
 		SELECT
-			trace_id, span_id, detector, category, severity,
+			trace_id, span_id, agent_id, detector, category, severity,
 			confidence, description, is_beta, detected_at
 		FROM detections FINAL
 		WHERE `+where+`
@@ -580,7 +633,7 @@ func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID s
 	for rows.Next() {
 		var d DetectionRow
 		if err := rows.Scan(
-			&d.TraceID, &d.SpanID, &d.Detector, &d.Category, &d.Severity,
+			&d.TraceID, &d.SpanID, &d.AgentID, &d.Detector, &d.Category, &d.Severity,
 			&d.Confidence, &d.Description, &d.IsBeta, &d.DetectedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan incident: %w", err)
@@ -593,7 +646,7 @@ func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID s
 func (s *ClickHouseStore) QueryDetections(ctx context.Context, traceID, orgID, projectID string) ([]DetectionRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT
-			trace_id, span_id, detector, category, severity,
+			trace_id, span_id, agent_id, detector, category, severity,
 			confidence, description, is_beta, detected_at
 		FROM detections FINAL
 		WHERE trace_id = ? AND org_id = ? AND project_id = ?
@@ -610,7 +663,7 @@ func (s *ClickHouseStore) QueryDetections(ctx context.Context, traceID, orgID, p
 	for rows.Next() {
 		var d DetectionRow
 		if err := rows.Scan(
-			&d.TraceID, &d.SpanID, &d.Detector, &d.Category, &d.Severity,
+			&d.TraceID, &d.SpanID, &d.AgentID, &d.Detector, &d.Category, &d.Severity,
 			&d.Confidence, &d.Description, &d.IsBeta, &d.DetectedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan detection: %w", err)
@@ -628,7 +681,9 @@ func (s *ClickHouseStore) QueryDetections(ctx context.Context, traceID, orgID, p
 type TraceRow struct {
 	TraceID        string    `json:"trace_id"`
 	AgentID        string    `json:"agent_id"`
+	Platform       string    `json:"platform"`
 	WorkflowID     string    `json:"workflow_id"`
+	WorkflowName   string    `json:"workflow_name"`
 	Status         string    `json:"status"`
 	LatencyMs      uint32    `json:"latency_ms"`
 	TotalTokens    uint32    `json:"total_tokens"`
@@ -662,6 +717,7 @@ type SpanRow struct {
 type DetectionRow struct {
 	TraceID     string    `json:"trace_id"`
 	SpanID      string    `json:"span_id"`
+	AgentID     string    `json:"agent_id"`
 	Detector    string    `json:"detector"`
 	Category    string    `json:"category"`
 	Severity    string    `json:"severity"`
@@ -689,7 +745,7 @@ func (s *ClickHouseStore) Ping(ctx context.Context) error {
 // timing match the list instead of being recomputed client-side.
 func (s *ClickHouseStore) QueryTraceByID(ctx context.Context, traceID, orgID, projectID string) (*TraceRow, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT trace_id, agent_id, workflow_id, status, latency_ms, total_tokens,
+		SELECT trace_id, agent_id, platform, workflow_id, workflow_name, status, latency_ms, total_tokens,
 		       cost_usd, risk_score, risk_severity, detection_count, span_count,
 		       started_at, completed_at
 		FROM traces FINAL
@@ -706,7 +762,7 @@ func (s *ClickHouseStore) QueryTraceByID(ctx context.Context, traceID, orgID, pr
 	}
 	var t TraceRow
 	if err := rows.Scan(
-		&t.TraceID, &t.AgentID, &t.WorkflowID, &t.Status, &t.LatencyMs, &t.TotalTokens,
+		&t.TraceID, &t.AgentID, &t.Platform, &t.WorkflowID, &t.WorkflowName, &t.Status, &t.LatencyMs, &t.TotalTokens,
 		&t.CostUSD, &t.RiskScore, &t.RiskSeverity, &t.DetectionCount, &t.SpanCount,
 		&t.StartedAt, &t.CompletedAt,
 	); err != nil {
@@ -754,7 +810,9 @@ type AgentRow struct {
 // QueryAgents returns aggregated agent stats for a project. windowSec > 0 bounds
 // the aggregation to the trailing window; 0 means all-time.
 func (s *ClickHouseStore) QueryAgents(ctx context.Context, orgID, projectID string, windowSec int) ([]AgentRow, error) {
-	where := "org_id = ? AND project_id = ?"
+	// platform = '' keeps Agents strictly SDK-instrumented agents; orchestrator
+	// (platform) runs live in the Agent Platforms domain, never here.
+	where := "org_id = ? AND project_id = ? AND platform = ''"
 	args := []any{orgID, projectID}
 	if windowSec > 0 {
 		where += " AND started_at >= now() - toIntervalSecond(?)"
@@ -802,6 +860,125 @@ func (s *ClickHouseStore) QueryAgents(ctx context.Context, orgID, projectID stri
 	return agents, nil
 }
 
+// PlatformRow aggregates one agent-platform's orchestration activity for the
+// Agent Platforms home. Keyed by the traces.platform column (never empty here).
+type PlatformRow struct {
+	Platform      string    `json:"platform"`
+	RunCount      uint64    `json:"run_count"`
+	ErrorCount    uint64    `json:"error_count"`
+	WorkflowCount uint64    `json:"workflow_count"`
+	AvgLatencyMs  float64   `json:"avg_latency_ms"`
+	P95LatencyMs  float64   `json:"p95_latency_ms"`
+	TotalTokens   uint64    `json:"total_tokens"`
+	TotalCost     float64   `json:"total_cost"`
+	LastSeenAt    time.Time `json:"last_seen_at"`
+}
+
+// QueryPlatforms returns per-platform run aggregates (Agent Platforms domain).
+// Only platform (orchestrator) runs are considered — platform <> ''.
+func (s *ClickHouseStore) QueryPlatforms(ctx context.Context, orgID, projectID string, windowSec int) ([]PlatformRow, error) {
+	where := "org_id = ? AND project_id = ? AND platform <> ''"
+	args := []any{orgID, projectID}
+	if windowSec > 0 {
+		where += " AND started_at >= now() - toIntervalSecond(?)"
+		args = append(args, windowSec)
+	}
+	rows, err := s.conn.Query(ctx, `
+		SELECT
+			platform,
+			count() AS run_count,
+			countIf(status = 'error') AS error_count,
+			uniqExact(workflow_id) AS workflow_count,
+			avg(latency_ms) AS avg_latency_ms,
+			quantile(0.95)(latency_ms) AS p95_latency_ms,
+			sum(total_tokens) AS total_tokens,
+			sum(cost_usd) AS total_cost,
+			max(started_at) AS last_seen_at
+		FROM traces FINAL
+		WHERE `+where+`
+		GROUP BY platform
+		ORDER BY run_count DESC
+		LIMIT 100`,
+		args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query platforms: %w", err)
+	}
+	defer rows.Close()
+	var out []PlatformRow
+	for rows.Next() {
+		var p PlatformRow
+		if err := rows.Scan(
+			&p.Platform, &p.RunCount, &p.ErrorCount, &p.WorkflowCount,
+			&p.AvgLatencyMs, &p.P95LatencyMs, &p.TotalTokens, &p.TotalCost, &p.LastSeenAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan platform: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// WorkflowRow aggregates one workflow within a platform (Workflow Operations
+// dashboard: the workflow list). Version is the latest observed workflow_version.
+type WorkflowRow struct {
+	WorkflowID   string    `json:"workflow_id"`
+	WorkflowName string    `json:"workflow_name"`
+	Version      string    `json:"version"`
+	RunCount     uint64    `json:"run_count"`
+	ErrorCount   uint64    `json:"error_count"`
+	AvgLatencyMs float64   `json:"avg_latency_ms"`
+	P95LatencyMs float64   `json:"p95_latency_ms"`
+	TotalTokens  uint64    `json:"total_tokens"`
+	TotalCost    float64   `json:"total_cost"`
+	LastSeenAt   time.Time `json:"last_seen_at"`
+}
+
+// QueryWorkflows returns per-workflow aggregates for one platform.
+func (s *ClickHouseStore) QueryWorkflows(ctx context.Context, orgID, projectID, platform string, windowSec int) ([]WorkflowRow, error) {
+	where := "org_id = ? AND project_id = ? AND platform = ?"
+	args := []any{orgID, projectID, platform}
+	if windowSec > 0 {
+		where += " AND started_at >= now() - toIntervalSecond(?)"
+		args = append(args, windowSec)
+	}
+	rows, err := s.conn.Query(ctx, `
+		SELECT
+			workflow_id,
+			any(workflow_name) AS workflow_name,
+			argMax(workflow_version, started_at) AS version,
+			count() AS run_count,
+			countIf(status = 'error') AS error_count,
+			avg(latency_ms) AS avg_latency_ms,
+			quantile(0.95)(latency_ms) AS p95_latency_ms,
+			sum(total_tokens) AS total_tokens,
+			sum(cost_usd) AS total_cost,
+			max(started_at) AS last_seen_at
+		FROM traces FINAL
+		WHERE `+where+`
+		GROUP BY workflow_id
+		ORDER BY run_count DESC
+		LIMIT 200`,
+		args...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query workflows: %w", err)
+	}
+	defer rows.Close()
+	var out []WorkflowRow
+	for rows.Next() {
+		var wf WorkflowRow
+		if err := rows.Scan(
+			&wf.WorkflowID, &wf.WorkflowName, &wf.Version, &wf.RunCount, &wf.ErrorCount,
+			&wf.AvgLatencyMs, &wf.P95LatencyMs, &wf.TotalTokens, &wf.TotalCost, &wf.LastSeenAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan workflow: %w", err)
+		}
+		out = append(out, wf)
+	}
+	return out, rows.Err()
+}
+
 // CostRow represents cost breakdown by model.
 type CostRow struct {
 	Model           string  `json:"model"`
@@ -812,8 +989,20 @@ type CostRow struct {
 	AvgCostPerCall  float64 `json:"avg_cost_per_call"`
 }
 
-// QueryCosts returns cost breakdown by model for a project.
-func (s *ClickHouseStore) QueryCosts(ctx context.Context, orgID, projectID string) ([]CostRow, error) {
+// QueryCosts returns cost breakdown by model for a project. agentID scopes to a
+// single agent; source/platform scope to a domain (Agents vs Agent Platforms).
+func (s *ClickHouseStore) QueryCosts(ctx context.Context, orgID, projectID, agentID, source, platform string) ([]CostRow, error) {
+	// spans carry no agent_id/platform; scope via the traces roll-up when asked.
+	where := "org_id = ? AND project_id = ? AND model != ''"
+	args := []any{orgID, projectID}
+	if agentID != "" {
+		where += " AND trace_id IN (SELECT trace_id FROM traces FINAL WHERE org_id = ? AND project_id = ? AND agent_id = ?)"
+		args = append(args, orgID, projectID, agentID)
+	}
+	if clause, subArgs := traceScopeSubquery(orgID, projectID, source, platform); clause != "" {
+		where += clause
+		args = append(args, subArgs...)
+	}
 	rows, err := s.conn.Query(ctx, `
 		SELECT
 			model,
@@ -823,11 +1012,11 @@ func (s *ClickHouseStore) QueryCosts(ctx context.Context, orgID, projectID strin
 			sum(cost_usd) AS total_cost,
 			avg(cost_usd) AS avg_cost_per_call
 		FROM spans FINAL
-		WHERE org_id = ? AND project_id = ? AND model != ''
+		WHERE `+where+`
 		GROUP BY model
 		ORDER BY total_cost DESC
 		LIMIT 50`,
-		orgID, projectID,
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query costs: %w", err)
@@ -870,8 +1059,15 @@ type WorkflowCostRow struct {
 	TotalCost   float64 `json:"total_cost"`
 }
 
-// QueryCostByWorkflow returns spend grouped by workflow_id for a project.
-func (s *ClickHouseStore) QueryCostByWorkflow(ctx context.Context, orgID, projectID string) ([]WorkflowCostRow, error) {
+// QueryCostByWorkflow returns spend grouped by workflow_id for a project. A
+// non-empty platform narrows to that platform's workflows (Agent Platforms view).
+func (s *ClickHouseStore) QueryCostByWorkflow(ctx context.Context, orgID, projectID, platform string) ([]WorkflowCostRow, error) {
+	where := "org_id = ? AND project_id = ? AND workflow_id != ''"
+	args := []any{orgID, projectID}
+	if platform != "" {
+		where += " AND platform = ?"
+		args = append(args, platform)
+	}
 	rows, err := s.conn.Query(ctx, `
 		SELECT
 			workflow_id,
@@ -879,11 +1075,11 @@ func (s *ClickHouseStore) QueryCostByWorkflow(ctx context.Context, orgID, projec
 			sum(total_tokens) AS total_tokens,
 			sum(cost_usd) AS total_cost
 		FROM traces FINAL
-		WHERE org_id = ? AND project_id = ? AND workflow_id != ''
+		WHERE `+where+`
 		GROUP BY workflow_id
 		ORDER BY total_cost DESC
 		LIMIT 100`,
-		orgID, projectID,
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query cost by workflow: %w", err)
@@ -941,7 +1137,13 @@ type CostSummary struct {
 	AvgCostPerCall float64 `json:"avg_cost_per_call"`
 }
 
-func (s *ClickHouseStore) QueryCostSummary(ctx context.Context, orgID, projectID string) (*CostSummary, error) {
+func (s *ClickHouseStore) QueryCostSummary(ctx context.Context, orgID, projectID, source, platform string) (*CostSummary, error) {
+	where := "org_id = ? AND project_id = ? AND model != ''"
+	args := []any{orgID, projectID}
+	if clause, subArgs := traceScopeSubquery(orgID, projectID, source, platform); clause != "" {
+		where += clause
+		args = append(args, subArgs...)
+	}
 	var cs CostSummary
 	err := s.conn.QueryRow(ctx, `
 		SELECT
@@ -950,8 +1152,8 @@ func (s *ClickHouseStore) QueryCostSummary(ctx context.Context, orgID, projectID
 			sum(prompt_tokens + completion_tokens) AS total_tokens,
 			if(count() > 0, sum(cost_usd) / count(), 0) AS avg_cost_per_call
 		FROM spans FINAL
-		WHERE org_id = ? AND project_id = ? AND model != ''`,
-		orgID, projectID,
+		WHERE `+where+``,
+		args...,
 	).Scan(&cs.TotalCost, &cs.TotalCalls, &cs.TotalTokens, &cs.AvgCostPerCall)
 	if err != nil {
 		return nil, fmt.Errorf("query cost summary: %w", err)
@@ -983,11 +1185,110 @@ type MetricsFilter struct {
 	OffsetSec   int
 	AgentID     string
 	Model       string
+	Source      string // "", "agent", "platform" — source-domain scoping
+	Platform    string // narrow to a single platform id
 }
 
 // QueryMetricsTimeseries returns trace metrics bucketed by intervalSec over the
 // trailing windowSec, for the dashboard's Metrics view (latency, throughput,
 // error rate, tokens, cost over time).
+// SpanMetricGroup aggregates spans by a key (span name or MCP server) for the
+// Tools & Retrieval + MCP-server monitoring views.
+type SpanMetricGroup struct {
+	Key        string  `json:"key"`
+	Count      uint64  `json:"count"`
+	ErrorCount uint64  `json:"error_count"`
+	Flagged    uint64  `json:"flagged"` // spans with a security detection (violations/risk)
+	AvgMs      float64 `json:"avg_ms"`
+	P95Ms      float64 `json:"p95_ms"`
+}
+
+// SpanMetricsFilter selects + groups spans. Group "mcp_server" keys by the
+// mcp.server.name attribute; anything else keys by span name.
+type SpanMetricsFilter struct {
+	Type     string
+	Group    string
+	SinceSec int
+	Server   string // filter to one MCP server (attributes['mcp.server.name'])
+	Source   string // "", "agent", "platform" — source-domain scoping
+	Platform string // narrow to a single platform id
+}
+
+// QuerySpanMetrics groups spans (by name or MCP server) with latency/error/flag
+// aggregates — powers the Tools & Retrieval view and the MCP Servers page.
+func (s *ClickHouseStore) QuerySpanMetrics(ctx context.Context, orgID, projectID string, f SpanMetricsFilter) ([]SpanMetricGroup, error) {
+	keyExpr := "name"
+	if f.Group == "mcp_server" {
+		keyExpr = "attributes['mcp.server.name']"
+	}
+	where := "org_id = ? AND project_id = ?"
+	args := []any{orgID, projectID}
+	if f.Type != "" {
+		where += " AND type = ?"
+		args = append(args, f.Type)
+	}
+	if f.Server != "" {
+		where += " AND attributes['mcp.server.name'] = ?"
+		args = append(args, f.Server)
+	}
+	if f.SinceSec > 0 {
+		where += " AND started_at >= now() - toIntervalSecond(?)"
+		args = append(args, f.SinceSec)
+	}
+	if clause, subArgs := traceScopeSubquery(orgID, projectID, f.Source, f.Platform); clause != "" {
+		where += clause
+		args = append(args, subArgs...)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT `+keyExpr+` AS k, count() AS c, countIf(status = 'error') AS e,
+		       avg(latency_ms) AS a, quantile(0.95)(latency_ms) AS p
+		FROM spans FINAL WHERE `+where+`
+		GROUP BY k ORDER BY c DESC LIMIT 200`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query span metrics: %w", err)
+	}
+	defer rows.Close()
+	byKey := map[string]*SpanMetricGroup{}
+	var out []SpanMetricGroup
+	for rows.Next() {
+		var g SpanMetricGroup
+		var p float64
+		if err := rows.Scan(&g.Key, &g.Count, &g.ErrorCount, &g.AvgMs, &p); err != nil {
+			return nil, fmt.Errorf("scan span metric: %w", err)
+		}
+		g.P95Ms = p
+		out = append(out, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		byKey[out[i].Key] = &out[i]
+	}
+
+	// Flagged = spans in each group that have a security detection (the
+	// "permission violations / risk" signal). Join spans → detections by span_id.
+	frows, err := s.conn.Query(ctx, `
+		SELECT `+keyExpr+` AS k, count() AS f
+		FROM spans FINAL
+		WHERE `+where+` AND span_id IN (SELECT span_id FROM detections WHERE org_id = ? AND project_id = ?)
+		GROUP BY k`, append(append([]any{}, args...), orgID, projectID)...)
+	if err == nil {
+		defer frows.Close()
+		for frows.Next() {
+			var k string
+			var f uint64
+			if err := frows.Scan(&k, &f); err == nil {
+				if g, ok := byKey[k]; ok {
+					g.Flagged = f
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
 func (s *ClickHouseStore) QueryMetricsTimeseries(ctx context.Context, orgID, projectID string, f MetricsFilter) ([]MetricPoint, error) {
 	interval := f.IntervalSec
 	if interval <= 0 {
@@ -1012,6 +1313,7 @@ func (s *ClickHouseStore) QueryMetricsTimeseries(ctx context.Context, orgID, pro
 		where += " AND agent_id != '' AND trace_id IN (SELECT DISTINCT trace_id FROM spans FINAL WHERE org_id = ? AND project_id = ? AND model = ?)"
 		args = append(args, orgID, projectID, f.Model)
 	}
+	where, args = sourceWhere(where, args, f.Source, f.Platform)
 	// Trailing window shifted back by offset (offset=window → previous period).
 	where += " AND started_at >= now() - toIntervalSecond(?) AND started_at < now() - toIntervalSecond(?)"
 	args = append(args, window+offset, offset)
@@ -1143,6 +1445,7 @@ func (s *ClickHouseStore) InsertDetectionResult(ctx context.Context, result *str
 			SpanID:      result.SpanID,
 			OrgID:       result.OrgID,
 			ProjectID:   result.ProjectID,
+			AgentID:     result.AgentID,
 			Detector:    d.Detector,
 			Category:    d.Category,
 			Severity:    d.Severity,

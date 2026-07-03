@@ -7,7 +7,6 @@ import {
   Activity,
   Bot,
   DollarSign,
-  FolderKanban,
   Bell,
   ArrowRight,
   ArrowUpRight,
@@ -17,6 +16,8 @@ import {
   AlertTriangle,
   Gauge,
   Clock,
+  Workflow,
+  Server,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -41,7 +42,8 @@ import {
   type Severity,
 } from "@/components/ui/primitives";
 import { CardSkeleton } from "@/components/ui/Skeleton";
-import { useMetrics, useCosts, useAgents, useTraces, useSecurityIncidents } from "@/lib/hooks";
+import { useMetrics, useCosts, useAgents, useTraces, useSecurityIncidents, useSpanMetrics } from "@/lib/hooks";
+import { usePlatforms } from "@/lib/platforms";
 
 // ─── formatting helpers ──────────────────────────────────────────────────────
 
@@ -139,6 +141,38 @@ function LoadError({ what }: { what: string }) {
   );
 }
 
+// Top-level domain card: one per data plane (Agents / Platforms / MCP), color-keyed
+// to the SourceBadge palette so the three domains are instantly recognizable.
+const DOMAIN_TONE: Record<"brand" | "amber" | "neutral", string> = {
+  brand: "bg-splyntra-50 text-splyntra-600 dark:bg-splyntra-950/40 dark:text-splyntra-300",
+  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300",
+  neutral: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300",
+};
+function DomainCard({ href, icon: Icon, label, value, sub, tone, loading }: {
+  href: string; icon: LucideIcon; label: string; value: string; sub: string; tone: "brand" | "amber" | "neutral"; loading?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group relative flex items-center gap-4 rounded-xl border border-gray-200/80 bg-white p-5 shadow-card outline-none transition-all hover:border-splyntra-300 hover:shadow-card-hover focus-visible:ring-2 focus-visible:ring-splyntra-400 dark:border-gray-800 dark:bg-gray-900"
+    >
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${DOMAIN_TONE[tone]}`}>
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        {loading ? (
+          <div className="h-7 w-12 animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
+        ) : (
+          <div className="text-2xl font-bold tabular-nums leading-tight text-gray-900 dark:text-white">{value}</div>
+        )}
+        <div className="text-[13px] font-medium text-gray-700 dark:text-gray-200">{label}</div>
+        <div className="mt-0.5 text-[11px] text-gray-400">{sub}</div>
+      </div>
+      <ArrowUpRight className="absolute right-4 top-4 h-4 w-4 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+    </Link>
+  );
+}
+
 function SectionHeader({ title, href, cta }: { title: string; href: string; cta: string }) {
   return (
     <div className="mb-4 flex items-center justify-between">
@@ -156,14 +190,31 @@ function SectionHeader({ title, href, cta }: { title: string; href: string; cta:
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const metrics = useMetrics({ windowSec: 86400, intervalSec: 3600 });
-  const costs = useCosts();
+  // The home overview is the Agents fleet view: scope KPIs/feed to agent runs so
+  // orchestrator (platform) runs — which have their own home at /platforms —
+  // don't inflate the numbers here.
+  const metrics = useMetrics({ windowSec: 86400, intervalSec: 3600, source: "agent" });
+  const costs = useCosts({ source: "agent" });
   const agents = useAgents(86400);
-  const traces = useTraces({ limit: 100 });
-  const incidents = useSecurityIncidents({ limit: 6 });
+  const traces = useTraces({ limit: 100, source: "agent" });
+  const incidents = useSecurityIncidents({ limit: 6, source: "agent" });
+
+  // The three product domains, for the top-level domain row.
+  const platforms = usePlatforms();
+  const mcpServers = useSpanMetrics({ group: "mcp_server" });
 
   const points = metrics.data?.points ?? [];
   const traceRows = traces.data?.traces ?? [];
+
+  const domains = useMemo(() => {
+    const platformRows = platforms.data?.platforms ?? [];
+    const serverRows = mcpServers.data?.groups ?? [];
+    return {
+      agents: { count: agents.data?.total ?? 0, runs: agents.data?.agents.reduce((a, x) => a + x.trace_count, 0) ?? 0 },
+      platforms: { count: platformRows.length, runs: platformRows.reduce((a, p) => a + p.run_count, 0) },
+      mcp: { count: serverRows.length, calls: serverRows.reduce((a, s) => a + s.count, 0) },
+    };
+  }, [agents.data, platforms.data, mcpServers.data]);
 
   // KPI aggregates over the 24h window.
   const kpi = useMemo(() => {
@@ -240,7 +291,7 @@ export default function Home() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Overview</h1>
           <p className="mt-1 text-[13px] text-gray-500 dark:text-gray-400">
-            What your agents did in the last 24 hours — and whether it was safe.
+            Your agents, platforms, and MCP servers at a glance — activity, cost, and safety.
           </p>
         </div>
         <span
@@ -263,7 +314,30 @@ export default function Home() {
         </span>
       </div>
 
-      {/* KPI row */}
+      {/* Domains — the three separated data planes */}
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <DomainCard
+          href="/agents" icon={Bot} tone="brand" label="Agents"
+          value={fmtNum(domains.agents.count)}
+          sub={`${fmtNum(domains.agents.runs)} runs · 24h`}
+          loading={agents.isLoading}
+        />
+        <DomainCard
+          href="/platforms" icon={Workflow} tone="amber" label="Agent Platforms"
+          value={fmtNum(domains.platforms.count)}
+          sub={`${fmtNum(domains.platforms.runs)} workflow runs`}
+          loading={platforms.isLoading}
+        />
+        <DomainCard
+          href="/mcp" icon={Server} tone="neutral" label="MCP Servers"
+          value={fmtNum(domains.mcp.count)}
+          sub={`${fmtNum(domains.mcp.calls)} tool calls`}
+          loading={mcpServers.isLoading}
+        />
+      </div>
+
+      {/* KPI row — scoped to agents (platforms have their own home) */}
+      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Agents · last 24 hours</h2>
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Traces · 24h" value={fmtNum(kpi.totalTraces)} icon={Activity} />
         <StatCard
@@ -476,11 +550,11 @@ export default function Home() {
 
 const SHORTCUTS: { href: string; title: string; icon: LucideIcon }[] = [
   { href: "/traces", title: "Traces", icon: Activity },
-  { href: "/agents", title: "Agents", icon: Bot },
+  { href: "/platforms", title: "Platforms", icon: Workflow },
+  { href: "/mcp", title: "MCP Servers", icon: Server },
   { href: "/metrics", title: "Metrics", icon: LineChartIcon },
   { href: "/evaluations", title: "Evaluation", icon: ClipboardCheck },
   { href: "/costs", title: "Costs", icon: DollarSign },
   { href: "/security", title: "Security", icon: ShieldAlert },
-  { href: "/projects", title: "Projects", icon: FolderKanban },
   { href: "/alerts", title: "Alerts", icon: Bell },
 ];

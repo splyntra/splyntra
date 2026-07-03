@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Trace, Span, Detection } from "@/types/trace";
 import { Card, RiskBadge, SeverityBadge, StatusPill } from "@/components/ui/primitives";
+import { SourceBadge, sourceOf } from "@/components/ui/SourceBadge";
 
 interface TraceViewerProps {
   trace: Trace;
@@ -40,11 +41,12 @@ export function TraceViewer({ trace }: TraceViewerProps) {
               {trace.traceId}
             </code>
             <StatusPill status={trace.status} />
+            <SourceBadge source={sourceOf(trace.platform)} />
           </div>
           <div className="mt-1.5 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Bot className="h-4 w-4 text-gray-400" />
-            <span className="font-medium">{trace.agentId}</span>
-            {trace.workflowId && (
+            <span className="font-medium">{trace.platform ? trace.workflowName || trace.workflowId || trace.agentId : trace.agentId}</span>
+            {trace.platform && trace.workflowId && (
               <span className="text-gray-400">· workflow: {trace.workflowId}</span>
             )}
           </div>

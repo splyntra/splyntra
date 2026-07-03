@@ -1,0 +1,27 @@
+{
+  "id": "splyntra",
+  "name": "Splyntra",
+  "description": "Send OpenClaw agent session telemetry to Splyntra (trace / cost / security).",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "endpoint": {
+        "type": "string",
+        "description": "Splyntra collector base URL, e.g. https://collector.example.com:4318",
+        "default": "http://localhost:4318"
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "Splyntra ingest key (sent as a Bearer token)."
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      }
+    }
+  }
+}

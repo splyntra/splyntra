@@ -16,6 +16,7 @@ import (
 type DetectionResult struct {
 	TraceID    string           `json:"trace_id"`
 	SpanID     string           `json:"span_id"`
+	AgentID    string           `json:"agent_id"`
 	OrgID      string           `json:"org_id"`
 	ProjectID  string           `json:"project_id"`
 	RiskScore  int              `json:"risk_score"`
@@ -38,6 +39,7 @@ type DetectionConsumer struct {
 	logger    *zap.Logger
 	store     DetectionStore
 	evaluator AlertEvaluator
+	exporter  Exporter
 	cancel    context.CancelFunc
 }
 
@@ -56,6 +58,19 @@ type AlertEvaluator interface {
 // SetAlertEvaluator attaches an alert evaluator invoked after each trace is scored.
 func (c *DetectionConsumer) SetAlertEvaluator(e AlertEvaluator) {
 	c.evaluator = e
+}
+
+// Exporter forwards detection results to an external sink (SIEM / Datadog /
+// Splunk / generic webhook), making Splyntra a source and not just a sink.
+// Optional; a nil exporter disables forwarding.
+type Exporter interface {
+	Export(ctx context.Context, result *DetectionResult)
+}
+
+// SetExporter attaches an outbound exporter invoked after each detection result
+// is persisted.
+func (c *DetectionConsumer) SetExporter(e Exporter) {
+	c.exporter = e
 }
 
 func NewDetectionConsumer(natsURL string, logger *zap.Logger, store DetectionStore) (*DetectionConsumer, error) {
@@ -166,6 +181,11 @@ func (c *DetectionConsumer) processMessage(ctx context.Context, msg jetstream.Ms
 	// Evaluate configured alerts against the freshly-scored trace.
 	if c.evaluator != nil {
 		c.evaluator.Evaluate(ctx, result.OrgID, result.ProjectID, result.TraceID, severity, result.RiskScore)
+	}
+
+	// Forward the detection result to an external SIEM/webhook, if configured.
+	if c.exporter != nil {
+		c.exporter.Export(ctx, &result)
 	}
 
 	c.logger.Info("detection result processed",

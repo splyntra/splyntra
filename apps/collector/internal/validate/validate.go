@@ -27,10 +27,13 @@ var ErrEmpty = errors.New("required field is empty")
 
 // validSpanType is the set of span types the pipeline understands.
 var validSpanType = map[string]bool{
-	"agent":     true,
-	"llm_call":  true,
-	"tool_call": true,
-	"step":      true,
+	"agent":         true,
+	"llm_call":      true,
+	"tool_call":     true,
+	"step":          true,
+	"retrieval":     true,
+	"db":            true,
+	"vector_search": true,
 }
 
 // ValidateTrace checks a single trace event for the invariants the storage

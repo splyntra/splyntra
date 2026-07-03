@@ -24,33 +24,63 @@ from typing import Dict, List, Type
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 
 from splyntra.instrumentors.openai import OpenAIInstrumentor
+from splyntra.instrumentors.anthropic import AnthropicInstrumentor
+from splyntra.instrumentors.ollama import OllamaInstrumentor
 from splyntra.instrumentors.langgraph import LangGraphInstrumentor
 from splyntra.instrumentors.openai_agents import OpenAIAgentsInstrumentor
 from splyntra.instrumentors.crewai import CrewAIInstrumentor
+from splyntra.instrumentors.mcp import MCPInstrumentor
+from splyntra.instrumentors.llamaindex import LlamaIndexInstrumentor
+from splyntra.instrumentors.pydantic_ai import PydanticAIInstrumentor
+from splyntra.instrumentors.google_adk import GoogleADKInstrumentor
+from splyntra.instrumentors.chroma import ChromaInstrumentor
 
 __all__ = [
     "OpenAIInstrumentor",
+    "AnthropicInstrumentor",
+    "OllamaInstrumentor",
     "LangGraphInstrumentor",
     "OpenAIAgentsInstrumentor",
     "CrewAIInstrumentor",
+    "MCPInstrumentor",
+    "LlamaIndexInstrumentor",
+    "PydanticAIInstrumentor",
+    "GoogleADKInstrumentor",
+    "ChromaInstrumentor",
     "instrument",
 ]
 
 # Public framework name -> instrumentor class.
 _REGISTRY: Dict[str, Type[BaseInstrumentor]] = {
     "openai": OpenAIInstrumentor,
+    "anthropic": AnthropicInstrumentor,
+    "ollama": OllamaInstrumentor,
     "langgraph": LangGraphInstrumentor,
     "openai-agents": OpenAIAgentsInstrumentor,
     "openai_agents": OpenAIAgentsInstrumentor,
     "crewai": CrewAIInstrumentor,
+    "mcp": MCPInstrumentor,
+    "llamaindex": LlamaIndexInstrumentor,
+    "pydantic-ai": PydanticAIInstrumentor,
+    "pydantic_ai": PydanticAIInstrumentor,
+    "google-adk": GoogleADKInstrumentor,
+    "google_adk": GoogleADKInstrumentor,
+    "chroma": ChromaInstrumentor,
 }
 
 # Framework name -> importable module used for auto-detection.
 _DETECT = {
     "openai": "openai",
+    "anthropic": "anthropic",
+    "ollama": "ollama",
     "langgraph": "langgraph",
     "openai-agents": "agents",
     "crewai": "crewai",
+    "mcp": "mcp",
+    "llamaindex": "llama_index",
+    "pydantic-ai": "pydantic_ai",
+    "google-adk": "google.adk",
+    "chroma": "chromadb",
 }
 
 

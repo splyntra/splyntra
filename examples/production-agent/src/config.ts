@@ -4,6 +4,7 @@
 // or nonsensical — never half-configured in production.
 
 export type Environment = "production" | "staging" | "development";
+export type LlmProvider = "gemini" | "openai" | "simulated";
 
 export interface Config {
   env: Environment;
@@ -14,12 +15,20 @@ export interface Config {
     project: string;
     endpoint: string;
   };
-  openai: {
-    /** null → run in simulated-LLM mode (no provider account needed). */
+  llm: {
+    /** Which provider the classifier calls. "simulated" needs no account. */
+    provider: LlmProvider;
+    /** null only when provider === "simulated". */
     apiKey: string | null;
     model: string;
+    /** OpenAI-compatible base URL. Set for Gemini; null uses the OpenAI default. */
+    baseURL: string | null;
   };
 }
+
+// Gemini speaks the OpenAI Chat Completions API at this base URL, so the same
+// OpenAI client + the SDK's openai auto-instrumentor capture it with no extra code.
+const GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 
 function required(name: string): string {
   const v = process.env[name]?.trim();
@@ -50,6 +59,26 @@ function parseEnv(): Environment {
   return v;
 }
 
+// Resolve the LLM provider. Precedence: Gemini → OpenAI → simulated. Both real
+// providers go through the OpenAI client (Gemini via its OpenAI-compatible base
+// URL), so a single auto-instrumentor covers them.
+function resolveLlm(): Config["llm"] {
+  const gemini = process.env.GEMINI_API_KEY?.trim();
+  if (gemini) {
+    return {
+      provider: "gemini",
+      apiKey: gemini,
+      model: optional("GEMINI_MODEL", "gemini-2.5-flash"),
+      baseURL: optional("GEMINI_BASE_URL", GEMINI_OPENAI_BASE),
+    };
+  }
+  const openai = process.env.OPENAI_API_KEY?.trim();
+  if (openai) {
+    return { provider: "openai", apiKey: openai, model: optional("OPENAI_MODEL", "gpt-4o-mini"), baseURL: null };
+  }
+  return { provider: "simulated", apiKey: null, model: "simulated-triage-v1", baseURL: null };
+}
+
 export function loadConfig(): Config {
   const env = parseEnv();
 
@@ -62,10 +91,7 @@ export function loadConfig(): Config {
       project: required("SPLYNTRA_PROJECT"),
       endpoint: optional("SPLYNTRA_ENDPOINT", "http://localhost:4318"),
     },
-    openai: {
-      apiKey: process.env.OPENAI_API_KEY?.trim() || null,
-      model: optional("OPENAI_MODEL", "gpt-4o-mini"),
-    },
+    llm: resolveLlm(),
   };
 
   // In production, refuse the dev key and an insecure endpoint — these are the

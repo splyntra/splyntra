@@ -3,10 +3,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSecurityIncidents } from "@/lib/hooks";
-import { DetectionItem } from "@/lib/api";
+import { DetectionItem, SourceScope } from "@/lib/api";
 import { ShieldAlert, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { PageHeader, Card, EmptyState, SeverityBadge } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/Select";
+import { SourceFilter } from "@/components/ui/SourceFilter";
 
 const PAGE = 25;
 const TIME_RANGES = [
@@ -22,15 +23,16 @@ export default function SecurityPage() {
   const [detector, setDetector] = useState("");
   const [severity, setSeverity] = useState("");
   const [since, setSince] = useState(0);
+  const [source, setSource] = useState<"" | SourceScope>("");
   const [offset, setOffset] = useState(0);
 
   useEffect(() => {
     setOffset(0);
-  }, [detector, severity, since]);
+  }, [detector, severity, since, source]);
 
   const opts = useMemo(
-    () => ({ limit: PAGE, offset, detector: detector || undefined, severity: severity || undefined, since: since || undefined }),
-    [offset, detector, severity, since]
+    () => ({ limit: PAGE, offset, detector: detector || undefined, severity: severity || undefined, since: since || undefined, source: source || undefined }),
+    [offset, detector, severity, since, source]
   );
   const { data, isLoading, error } = useSecurityIncidents(opts);
   const incidents: DetectionItem[] = data?.incidents || [];
@@ -86,6 +88,7 @@ export default function SecurityPage() {
           className="min-w-[130px]"
           options={TIME_RANGES.map((t) => ({ value: String(t.value), label: t.label }))}
         />
+        <SourceFilter value={source} onChange={setSource} />
         <span className="ml-auto text-xs text-gray-500 tabular-nums">
           {total.toLocaleString()} incident{total === 1 ? "" : "s"}
         </span>

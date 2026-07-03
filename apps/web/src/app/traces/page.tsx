@@ -7,6 +7,8 @@ import { TraceList } from "@/components/trace/TraceList";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { PageHeader } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/Select";
+import { SourceFilter } from "@/components/ui/SourceFilter";
+import { SourceScope } from "@/lib/api";
 import { Activity, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE = 25;
@@ -23,6 +25,7 @@ export default function TracesPage() {
   const [severity, setSeverity] = useState("");
   const [since, setSince] = useState(0);
   const [agentId, setAgentId] = useState("");
+  const [source, setSource] = useState<"" | SourceScope>("");
   const [offset, setOffset] = useState(0);
 
   // Drill-down from the agents page arrives via ?agent_id=… (read client-side to
@@ -35,7 +38,7 @@ export default function TracesPage() {
   // Any filter change resets pagination to the first page.
   useEffect(() => {
     setOffset(0);
-  }, [status, severity, since, agentId]);
+  }, [status, severity, since, agentId, source]);
 
   const opts = useMemo(
     () => ({
@@ -45,8 +48,9 @@ export default function TracesPage() {
       severity: severity || undefined,
       since: since || undefined,
       agentId: agentId || undefined,
+      source: source || undefined,
     }),
-    [offset, status, severity, since, agentId]
+    [offset, status, severity, since, agentId, source]
   );
 
   const { data, isLoading, error } = useTraces(opts);
@@ -108,12 +112,13 @@ export default function TracesPage() {
           className="min-w-[130px]"
           options={TIME_RANGES.map((t) => ({ value: String(t.value), label: t.label }))}
         />
+        {!agentId && <SourceFilter value={source} onChange={setSource} />}
         <span className="ml-auto text-xs text-gray-500 tabular-nums">
           {total.toLocaleString()} trace{total === 1 ? "" : "s"}
         </span>
       </div>
 
-      {isLoading ? <TableSkeleton rows={5} cols={8} /> : <TraceList traces={traces} />}
+      {isLoading ? <TableSkeleton rows={5} cols={8} /> : <TraceList traces={traces} showSource />}
 
       {/* Pagination */}
       {total > 0 && (offset > 0 || pageEnd < total) && (

@@ -54,6 +54,22 @@ INJECTION_PATTERNS = [
         "format_exploitation",
         "Chat template format tokens in user input",
     ),
+    # ── Jailbreak templates (named personas / mode escapes) ──
+    (
+        r"(?i)\b(dan\s+mode|do\s+anything\s+now|developer\s+mode|jailbreak|\bAIM\b|stay\s+in\s+character\s+as)\b",
+        "jailbreak",
+        "Known jailbreak persona/template",
+    ),
+    (
+        r"(?i)(without\s+(any\s+)?(restrictions?|filters?|guidelines?|censorship)|unfiltered|no\s+longer\s+bound\s+by)",
+        "jailbreak",
+        "Attempt to remove safety constraints",
+    ),
+    (
+        r"(?i)(enable|activate)\s+(developer|god|unrestricted|admin)\s+mode",
+        "jailbreak",
+        "Attempt to activate an unrestricted mode",
+    ),
 ]
 
 

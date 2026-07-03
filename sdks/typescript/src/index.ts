@@ -6,6 +6,7 @@ import { Resource } from "@opentelemetry/resources";
 import { makeOtlpExporter } from "./exporters";
 import { RedactingSpanProcessor } from "./redaction";
 import { instrument as instrumentFrameworks } from "./instrumentors";
+import { configureGuard, GuardMode } from "./guard";
 
 export interface SplyntraConfig {
   apiKey: string;
@@ -19,6 +20,10 @@ export interface SplyntraConfig {
   redactByDefault?: boolean;
   /** Frameworks to auto-instrument, e.g. ["openai", "langgraph"]. */
   instrument?: string[];
+  /** Inline guardrail mode: "off" (default), "monitor" (log only), "block". */
+  guard?: GuardMode;
+  /** On guard error/timeout: proceed (true, default) or block (false). */
+  guardFailOpen?: boolean;
 }
 
 export class Splyntra {
@@ -35,6 +40,8 @@ export class Splyntra {
       framework,
       redactByDefault = true,
       instrument,
+      guard = "off",
+      guardFailOpen = true,
     } = config;
 
     if (!apiKey) {
@@ -66,6 +73,9 @@ export class Splyntra {
     this.provider.register();
 
     this._tracer = trace.getTracer("splyntra", "0.1.0");
+
+    // Configure the inline guardrail used by the instrumentors' pre-flight hook.
+    configureGuard({ mode: guard, failOpen: guardFailOpen, endpoint, apiKey });
 
     if (instrument && instrument.length) {
       instrumentFrameworks(...instrument);
@@ -350,7 +360,9 @@ export function wrapLLM<T extends (...args: any[]) => any>(fn: T, model: string,
   );
 }
 
-export { instrument, instrumentOpenAI, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents } from "./instrumentors";
+export { instrument, instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP } from "./instrumentors";
 export { RedactingSpanProcessor, redactString } from "./redaction";
+export { SplyntraBlocked, enforceGuard, configureGuard } from "./guard";
+export type { GuardMode } from "./guard";
 export { makeOtlpExporter } from "./exporters";
 export { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";

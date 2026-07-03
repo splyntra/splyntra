@@ -95,21 +95,40 @@ type Classifier = (ticket: TicketInput, ac: AbortController) => Promise<Classify
 // instrumentor. Simulated path: a wrapLLM-wrapped local function so traces (and
 // token/cost attributes) still flow without a provider account.
 function makeClassifier(cfg: Config): Classifier {
-  if (cfg.openai.apiKey) {
-    const client = new OpenAI({ apiKey: cfg.openai.apiKey });
+  // Real providers (OpenAI, or Gemini via its OpenAI-compatible endpoint) share
+  // one code path — Gemini just supplies a base URL. The SDK's openai
+  // auto-instrumentor patches the client prototype, so both are traced with
+  // token usage regardless of the base URL.
+  if (cfg.llm.provider !== "simulated" && cfg.llm.apiKey) {
+    const client = new OpenAI({
+      apiKey: cfg.llm.apiKey,
+      ...(cfg.llm.baseURL ? { baseURL: cfg.llm.baseURL } : {}),
+    });
+    // Explicitly wrap the provider call in an llm_call span. `instrument:
+    // ["openai"]` auto-instrumentation also works (the SDK patches both the CJS
+    // and ESM builds of openai), but wrapping explicitly is version-independent
+    // and guarantees exactly one span — a good default for a production service.
+    // It captures token usage from the response for both OpenAI and Gemini
+    // (Gemini via its OpenAI-compatible endpoint).
+    const complete = wrapLLM(
+      (ticket: TicketInput, ac: AbortController) =>
+        client.chat.completions.create(
+          {
+            model: cfg.llm.model,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: ticket.message },
+            ],
+          },
+          { signal: ac.signal },
+        ),
+      cfg.llm.model,
+      cfg.llm.provider,
+    );
     return async (ticket: TicketInput, ac: AbortController): Promise<ClassifyResult> => {
-      const res = await client.chat.completions.create(
-        {
-          model: cfg.openai.model,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: ticket.message },
-          ],
-        },
-        { signal: ac.signal },
-      );
-      return { raw: res.choices[0]?.message?.content ?? "{}", model: cfg.openai.model, simulated: false };
+      const res = await complete(ticket, ac);
+      return { raw: res.choices[0]?.message?.content ?? "{}", model: cfg.llm.model, simulated: false };
     };
   }
 

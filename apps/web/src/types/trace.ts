@@ -6,7 +6,9 @@
 export interface Trace {
   traceId: string;
   agentId: string;
+  platform?: string; // '' = SDK agent; else platform id (dify/n8n/…)
   workflowId?: string;
+  workflowName?: string;
   status: "ok" | "error";
   latencyMs: number;
   totalTokens: number;

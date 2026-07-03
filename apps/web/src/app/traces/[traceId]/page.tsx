@@ -53,6 +53,9 @@ function apiToTrace(traceId: string, data: TraceDetailResponse): Trace {
   return {
     traceId,
     agentId: t?.agent_id || spans[0]?.name || "unknown",
+    platform: t?.platform || "",
+    workflowId: t?.workflow_id || undefined,
+    workflowName: t?.workflow_name || undefined,
     status: (t?.status as Trace["status"]) || (spans.some((s) => s.status === "error") ? "error" : "ok"),
     latencyMs: t?.latency_ms ?? totalLatency,
     totalTokens: t?.total_tokens ?? totalTokens,

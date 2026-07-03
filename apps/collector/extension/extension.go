@@ -85,3 +85,43 @@ func RegisterQuotaGuard(g QuotaGuard) { guard = g }
 
 // Quota returns the active guard (allow-all in OSS).
 func Quota() QuotaGuard { return guard }
+
+// ── Token validation seam (agent identity federation) ───────────────────────
+// The open core authenticates by hashed API key. A commercial module can
+// register an alternative validator to authenticate agents by a federated OIDC
+// token, a JIT credential, etc. The core tries it ONLY after the api_keys hash
+// lookup misses, so it never slows the common path. Like QuotaGuard this is a
+// register-a-provider seam (no routes), so it cannot collide with module routes.
+//
+// The validator returns a PUBLIC ValidatedIdentity (never an internal auth type),
+// which the core maps onto its own tenant context.
+
+// ValidatedIdentity is the tenant a TokenValidator resolves a token to.
+type ValidatedIdentity struct {
+	OrgID     string
+	ProjectID string
+	Env       string
+	KeyID     string
+	Scopes    []string
+}
+
+// TokenValidator authenticates a bearer token the core could not resolve as an
+// API key. ok=false means "not my token, keep falling through" (NOT an auth
+// error); the core then rejects the request as usual.
+type TokenValidator interface {
+	Validate(ctx context.Context, token string) (*ValidatedIdentity, bool)
+}
+
+type denyValidator struct{}
+
+func (denyValidator) Validate(context.Context, string) (*ValidatedIdentity, bool) {
+	return nil, false
+}
+
+var tokenValidator TokenValidator = denyValidator{}
+
+// RegisterTokenValidator installs a federated/JIT token validator (commercial).
+func RegisterTokenValidator(v TokenValidator) { tokenValidator = v }
+
+// Validator returns the active token validator (deny-all/fall-through in OSS).
+func Validator() TokenValidator { return tokenValidator }

@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 import { instrumentOpenAI } from "./openai";
+import { instrumentAnthropic } from "./anthropic";
+import { instrumentOllama } from "./ollama";
 import { instrumentLangGraph } from "./langgraph";
 import { instrumentCrewAI } from "./crewai";
 import { instrumentOpenAIAgents } from "./openai-agents";
+import { instrumentMCP } from "./mcp";
 
-export { instrumentOpenAI, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents };
+export { instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP };
 
 type Instrumentor = () => boolean;
 
 const REGISTRY: Record<string, Instrumentor> = {
   openai: instrumentOpenAI,
+  anthropic: instrumentAnthropic,
+  ollama: instrumentOllama,
   langgraph: instrumentLangGraph,
   crewai: instrumentCrewAI,
   "openai-agents": instrumentOpenAIAgents,
   openai_agents: instrumentOpenAIAgents,
+  mcp: instrumentMCP,
 };
 
 /**

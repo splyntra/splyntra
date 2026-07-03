@@ -23,6 +23,11 @@ import {
   Building2,
   Fingerprint,
   ShieldCheck,
+  FileCheck,
+  Plug,
+  Workflow,
+  Server,
+  Wrench,
   LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -40,38 +45,66 @@ const ICONS: Record<string, LucideIcon> = {
   KeyRound,
   Fingerprint,
   ShieldCheck,
+  FileCheck,
   CreditCard,
   Building2,
   Users,
+  Workflow,
+  Server,
+  Wrench,
+  Plug,
 };
 
-// Core (open-source) navigation. Commercial sections (governance: ledger,
-// policies, delegation) are contributed by extension slots in the cloud build.
-const navItems: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/", label: "Home", icon: LayoutDashboard },
-  { href: "/traces", label: "Traces", icon: Activity },
-  { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/metrics", label: "Metrics", icon: LineChart },
-  { href: "/evaluations", label: "Evaluation", icon: ClipboardCheck },
-  { href: "/security", label: "Security", icon: ShieldAlert },
-  { href: "/costs", label: "Costs", icon: DollarSign },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/alerts", label: "Alerts", icon: Bell },
-  { href: "/settings/keys", label: "API Keys", icon: KeyRound },
-  { href: "/settings/team", label: "Team", icon: Users },
+type Section = "" | "agents" | "platforms" | "mcp" | "observability" | "settings";
+type NavItem = { href: string; label: string; icon: LucideIcon; section: Section };
+
+// Core (open-source) navigation, grouped into sections. Commercial screens
+// (governance, identity, compliance, sso, billing) are contributed by extension
+// slots in the cloud build and placed into a section via their `section` field.
+const navItems: NavItem[] = [
+  { href: "/", label: "Home", icon: LayoutDashboard, section: "" },
+  { href: "/agents", label: "Agents", icon: Bot, section: "agents" },
+  { href: "/platforms", label: "Agent Platforms", icon: Workflow, section: "platforms" },
+  { href: "/mcp", label: "MCP Servers", icon: Server, section: "mcp" },
+  { href: "/traces", label: "Traces", icon: Activity, section: "observability" },
+  { href: "/metrics", label: "Metrics", icon: LineChart, section: "observability" },
+  { href: "/tools", label: "Tools & Retrieval", icon: Wrench, section: "observability" },
+  { href: "/evaluations", label: "Evaluation", icon: ClipboardCheck, section: "observability" },
+  { href: "/security", label: "Security", icon: ShieldAlert, section: "observability" },
+  { href: "/costs", label: "Costs", icon: DollarSign, section: "observability" },
+  { href: "/projects", label: "Projects", icon: FolderKanban, section: "settings" },
+  { href: "/alerts", label: "Alerts", icon: Bell, section: "settings" },
+  { href: "/settings/keys", label: "API Keys", icon: KeyRound, section: "settings" },
+  { href: "/settings/team", label: "Team", icon: Users, section: "settings" },
 ];
 
+const SECTION_ORDER: Section[] = ["", "agents", "platforms", "mcp", "observability", "settings"];
+const SECTION_LABEL: Record<Section, string> = {
+  "": "",
+  agents: "Agents",
+  platforms: "Agent Platforms",
+  mcp: "MCP Servers",
+  observability: "Observability",
+  settings: "Settings",
+};
+
 // Merge core nav with slot-contributed items whose feature flag is enabled.
-function resolveNavItems(): { href: string; label: string; icon: LucideIcon }[] {
+function resolveNavItems(): NavItem[] {
   const slotted = navSlotItems()
     .filter((i) => !i.feature || features[i.feature as keyof typeof features])
-    .map((i) => ({ href: i.href, label: i.label, icon: ICONS[i.icon] ?? LayoutDashboard }));
+    .map((i) => ({
+      href: i.href,
+      label: i.label,
+      icon: ICONS[i.icon] ?? LayoutDashboard,
+      section: (i.section as Section) || "observability",
+    }));
   return [...navItems, ...slotted];
 }
 
 export function Sidebar() {
   const pathname = usePathname();
   const items = resolveNavItems();
+  const grouped = SECTION_ORDER.map((s) => ({ section: s, items: items.filter((i) => i.section === s) })).filter((g) => g.items.length > 0);
 
   return (
     <aside className="flex w-64 flex-col border-r border-gray-100 bg-white shadow-sidebar dark:border-gray-800/50 dark:bg-gray-950">
@@ -95,25 +128,34 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {items.map((item) => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all ${
-                isActive
-                  ? "bg-splyntra-50 text-splyntra-700 shadow-sm shadow-splyntra-100/50 dark:bg-splyntra-950/40 dark:text-splyntra-200 dark:shadow-none"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-gray-200"
-              }`}
-            >
-              <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? "text-splyntra-600 dark:text-splyntra-400" : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`} />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+        {grouped.map((group) => (
+          <div key={group.section || "root"} className="space-y-0.5">
+            {SECTION_LABEL[group.section] && (
+              <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                {SECTION_LABEL[group.section]}
+              </div>
+            )}
+            {group.items.map((item) => {
+              const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all ${
+                    isActive
+                      ? "bg-splyntra-50 text-splyntra-700 shadow-sm shadow-splyntra-100/50 dark:bg-splyntra-950/40 dark:text-splyntra-200 dark:shadow-none"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-gray-200"
+                  }`}
+                >
+                  <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? "text-splyntra-600 dark:text-splyntra-400" : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
