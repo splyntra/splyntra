@@ -28,14 +28,16 @@ import {
   Workflow,
   Server,
   Wrench,
+  Gauge,
   LogOut,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { useProjects } from "@/lib/hooks";
 import { Select } from "@/components/ui/Select";
 import { useProject } from "@/lib/project-context";
 import { features } from "@/lib/features";
-import { navSlotItems, slotWidgets } from "@/lib/slots";
+import { navSlotItems, slotWidgets, usePlanFeatures } from "@/lib/slots";
 
 // Icons available to slot-contributed nav items (referenced by name so the
 // slots module stays free of React/icon imports).
@@ -53,10 +55,11 @@ const ICONS: Record<string, LucideIcon> = {
   Server,
   Wrench,
   Plug,
+  Gauge,
 };
 
 type Section = "" | "agents" | "platforms" | "mcp" | "observability" | "settings";
-type NavItem = { href: string; label: string; icon: LucideIcon; section: Section };
+type NavItem = { href: string; label: string; icon: LucideIcon; section: Section; locked?: boolean };
 
 // Core (open-source) navigation, grouped into sections. Commercial screens
 // (governance, identity, compliance, sso, billing) are contributed by extension
@@ -88,8 +91,18 @@ const SECTION_LABEL: Record<Section, string> = {
   settings: "Settings",
 };
 
-// Merge core nav with slot-contributed items whose feature flag is enabled.
-function resolveNavItems(): NavItem[] {
+// Merge core nav with slot-contributed items. Two gates apply to slot items:
+//   • feature (edition flag): whether the code ships in this edition at all.
+//   • planFeature (per-org plan): whether the org's plan entitles it. Items the
+//     plan doesn't include stay VISIBLE but are marked `locked` (badge + upsell
+//     screen) for discoverability. While the plan is still loading (or in OSS,
+//     where there's no provider), nothing is locked — avoids nav flicker.
+function resolveNavItems(plan: { features: readonly string[]; loading: boolean } | null): NavItem[] {
+  const entitled = (pf?: string) => {
+    if (!pf) return true; // no plan gate
+    if (!plan || plan.loading) return true; // unknown yet → don't lock
+    return plan.features.includes(pf);
+  };
   const slotted = navSlotItems()
     .filter((i) => !i.feature || features[i.feature as keyof typeof features])
     .map((i) => ({
@@ -97,13 +110,15 @@ function resolveNavItems(): NavItem[] {
       label: i.label,
       icon: ICONS[i.icon] ?? LayoutDashboard,
       section: (i.section as Section) || "observability",
+      locked: !entitled(i.planFeature),
     }));
   return [...navItems, ...slotted];
 }
 
 export function Sidebar() {
   const pathname = usePathname();
-  const items = resolveNavItems();
+  const planFeatures = usePlanFeatures();
+  const items = resolveNavItems(planFeatures);
   const grouped = SECTION_ORDER.map((s) => ({ section: s, items: items.filter((i) => i.section === s) })).filter((g) => g.items.length > 0);
 
   return (
@@ -150,7 +165,10 @@ export function Sidebar() {
                   }`}
                 >
                   <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? "text-splyntra-600 dark:text-splyntra-400" : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`} />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.locked && (
+                    <Lock className="h-3 w-3 flex-shrink-0 text-gray-300 dark:text-gray-600" aria-label="Upgrade required" />
+                  )}
                 </Link>
               );
             })}
@@ -160,6 +178,12 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-800/50">
+        {/* Sidebar-bottom widgets (e.g. the Upgrade-plan button in the cloud build). */}
+        {slotWidgets("sidebarBottom").map((W, i) => (
+          <div key={i} className="mb-2">
+            <W />
+          </div>
+        ))}
         <UserFooter />
         <div className="mt-2 flex items-center gap-3 px-2 text-[11px] text-gray-400">
           <span className="inline-flex items-center gap-1.5">

@@ -33,6 +33,60 @@ export function registerCollectorAuthResolver(fn: Resolver): void {
   resolver = fn;
 }
 
+// Effective-role resolver. The JWT `role` is client-settable via next-auth
+// update(), so mutations must be gated on the DB-verified role for the active
+// org. The cloud overlay registers a resolver that looks up the membership role;
+// the open edition registers none and the caller falls back to the JWT role
+// (safe there — a single implicit org, no client-driven org/role switching).
+type RoleResolver = (session: SessionLike) => Promise<string | null> | string | null;
+let roleResolver: RoleResolver | null = null;
+
+/** Register the DB-backed effective-role resolver (called by the cloud overlay). */
+export function registerRoleResolver(fn: RoleResolver): void {
+  roleResolver = fn;
+}
+
+/** The DB-verified role for the session's active org, or null if none registered. */
+export async function resolveEffectiveRole(session: unknown): Promise<string | null> {
+  if (!roleResolver) return null;
+  return (await roleResolver(session as SessionLike)) ?? null;
+}
+
+// Path feature-gate. Plan-gated data (governance/identity/compliance) is served
+// by the collector /v1 endpoints, so hiding the nav is not enough — the BFF proxy
+// must refuse a path the active org's plan doesn't include (deep-link / direct-API
+// bypass). The cloud overlay registers a resolver mapping a /v1 path to its
+// required plan feature and checking the org's plan; OSS registers none (allow).
+type PathGate = (session: SessionLike, path: string) => Promise<boolean> | boolean;
+let pathGate: PathGate | null = null;
+
+/** Register the /v1 path→plan-feature gate (called by the cloud overlay). */
+export function registerPathGate(fn: PathGate): void {
+  pathGate = fn;
+}
+
+/** Whether the session's org may access this /v1 path. True when no gate (OSS). */
+export async function resolvePathAllowed(session: unknown, path: string): Promise<boolean> {
+  if (!pathGate) return true;
+  return (await pathGate(session as SessionLike, path)) !== false;
+}
+
+// Membership-change hook. The cloud auth resolver caches membership briefly; when
+// a member is removed or their role changes, that cache must be dropped so access
+// is revoked immediately. The cloud overlay registers a handler; OSS none.
+type MembershipChangeHook = (userId: string, orgId: string) => void;
+let membershipChangeHook: MembershipChangeHook | null = null;
+
+/** Register a handler invoked when an org membership is removed/changed. */
+export function registerMembershipChangeHook(fn: MembershipChangeHook): void {
+  membershipChangeHook = fn;
+}
+
+/** Notify that a membership changed (called by team/member server actions). */
+export function notifyMembershipChanged(userId: string, orgId: string): void {
+  membershipChangeHook?.(userId, orgId);
+}
+
 // Community default: explicit client key, else the server org key, else the dev
 // key in non-production. Never falls back to the dev key in production.
 function defaultAuth(incomingKey: string): CollectorAuth {

@@ -28,6 +28,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
+    // Node-runtime jwt: run the edge-safe base logic first (copies orgId/role from
+    // `user` on credentials/SAML sign-in and from update()), then — for OAuth
+    // sign-ins where the provider's `user.id` is NOT our DB id and no orgId was
+    // resolved — look the user up by email and set the real DB userId + default
+    // org/role. Guarded on `!token.orgId` so credentials/SAML (already set) and
+    // subsequent requests (no `user`) are untouched. A user with no membership
+    // keeps an empty orgId → the onboarding redirect (auth.config) sends them there.
+    async jwt(params) {
+      const base = authConfig.callbacks?.jwt;
+      let token = base ? await base(params) : params.token;
+      const { user } = params;
+      const email = (user as { email?: string | null } | undefined)?.email;
+      if (user && email && !(token as { orgId?: string }).orgId) {
+        try {
+          const { rows } = await pool.query(
+            `SELECT u.id::text AS user_id, m.org_id::text AS org_id, m.role
+             FROM users u
+             LEFT JOIN memberships m ON m.user_id = u.id
+             WHERE u.email = $1
+             ORDER BY m.created_at ASC
+             LIMIT 1`,
+            [email.toLowerCase().trim()]
+          );
+          const row = rows[0];
+          if (row) {
+            const t = token as { userId?: string; orgId?: string; role?: string };
+            t.userId = row.user_id;
+            if (row.org_id) {
+              t.orgId = row.org_id;
+              t.role = row.role || "member";
+            }
+          }
+        } catch {
+          // DB unavailable → leave token as-is; onboarding/authz still gate access.
+        }
+      }
+      return token;
+    },
   },
   providers: [
     Credentials({

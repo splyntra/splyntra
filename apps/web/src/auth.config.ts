@@ -28,12 +28,26 @@ export const authConfig: NextAuthConfig = {
   providers: [], // real providers are added in auth.ts (Node runtime)
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
+      const { pathname } = nextUrl;
       const loggedIn = !!auth?.user;
       const isPublic =
-        PUBLIC.some((p) => nextUrl.pathname.startsWith(p)) ||
-        nextUrl.pathname.startsWith("/api/auth");
+        PUBLIC.some((p) => pathname.startsWith(p)) || pathname.startsWith("/api/auth");
       if (isPublic) return true;
-      return loggedIn; // redirects to signIn page when false
+      if (!loggedIn) return false; // redirects to signIn page
+
+      // Logged in but with no ACTIVE org (fresh cloud signup, or an OAuth/SSO user
+      // with no membership yet) → send them to onboarding to create one. Gated on
+      // an empty orgId, so it never fires in the open edition (its users always
+      // have the seeded org). Path is hardcoded (not the onboardingRedirect() seam)
+      // because this runs in the edge middleware, where the seam's setter — pulled
+      // in via the DB-touching auth-providers overlay — cannot load. Exclude
+      // /onboarding itself and /api/* (server action POST, Stripe webhook, etc.)
+      // to avoid redirect loops and broken callbacks.
+      const orgId = (auth!.user as { orgId?: string }).orgId;
+      if (!orgId && pathname !== "/onboarding" && !pathname.startsWith("/api")) {
+        return Response.redirect(new URL("/onboarding", nextUrl));
+      }
+      return true;
     },
     jwt({ token, user, trigger, session }) {
       if (user) {

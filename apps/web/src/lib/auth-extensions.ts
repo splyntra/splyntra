@@ -53,3 +53,26 @@ export function setOnboardingRedirect(path: string): void {
 export function onboardingRedirect(): string | null {
   return onboardingPath;
 }
+
+// Invite handler seam. The open edition creates the invitation row itself; the
+// cloud build registers a handler that ALSO enforces the plan's seat cap and
+// emails the invitee (lib/cloud/invites). When registered, inviteMemberAction
+// delegates invite creation to it entirely.
+export type InviteHandler = (args: {
+  orgId: string;
+  invitedByUserId: string;
+  inviterEmail: string;
+  email: string;
+  role: string;
+}) => Promise<{ error?: string; token?: string }>;
+
+let inviteHandler: InviteHandler | null = null;
+
+/** Register the cloud invite handler (seat cap + email). Open edition: none. */
+export function registerInviteHandler(fn: InviteHandler): void {
+  inviteHandler = fn;
+}
+
+export function registeredInviteHandler(): InviteHandler | null {
+  return inviteHandler;
+}

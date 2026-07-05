@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { pool, roleAtLeast } from "@/lib/db";
 import { auth, signIn } from "@/auth";
+import { registeredInviteHandler } from "@/lib/auth-extensions";
+import { notifyMembershipChanged } from "@/lib/collector-auth";
 
 const VALID_ROLES = new Set(["owner", "admin", "member", "viewer"]);
 
@@ -121,8 +123,25 @@ export async function inviteMemberAction(_prev: unknown, formData: FormData) {
   );
   if ((existing.rowCount ?? 0) > 0) return { error: "That person is already a member.", token: "" };
 
+  // Cloud build: delegate to the registered handler, which enforces the plan's
+  // seat cap and emails the invitee. Open edition: create the invitation directly.
+  const handler = registeredInviteHandler();
+  if (handler) {
+    const inviterEmail = ((await auth())?.user as { email?: string })?.email || "";
+    const res = await handler({ orgId, invitedByUserId: userId, inviterEmail, email, role });
+    if (res.error) return { error: res.error, token: "" };
+    revalidatePath("/settings/team");
+    return { error: "", token: res.token || "" };
+  }
+
   const token = randomToken();
-  // Supersede any prior pending invite for the same email (idempotent re-invite).
+  // Supersede any prior pending invite for the same email (idempotent re-invite;
+  // there's no UNIQUE constraint, so without this a re-invite stacks duplicate
+  // pending rows and inflates seat usage).
+  await pool.query(
+    "DELETE FROM invitations WHERE org_id = $1 AND email = $2 AND accepted_at IS NULL",
+    [orgId, email]
+  );
   await pool.query(
     `INSERT INTO invitations (org_id, email, role, token, invited_by)
      VALUES ($1, $2, $3, $4, $5)`,
@@ -152,6 +171,7 @@ export async function updateRoleAction(formData: FormData) {
     return;
   }
   await pool.query("UPDATE memberships SET role = $1 WHERE user_id = $2 AND org_id = $3", [role, userId, orgId]);
+  notifyMembershipChanged(userId, orgId); // drop cached membership/role immediately
   revalidatePath("/settings/team");
 }
 
@@ -163,5 +183,46 @@ export async function removeMemberAction(formData: FormData) {
     return;
   }
   await pool.query("DELETE FROM memberships WHERE user_id = $1 AND org_id = $2", [userId, orgId]);
+  notifyMembershipChanged(userId, orgId); // revoke cached access immediately
   revalidatePath("/settings/team");
+}
+
+// Accept an invitation as an ALREADY-LOGGED-IN user (signupAction handles the
+// new-account case). Joins the invited org with the invited role and marks the
+// invite accepted, in one transaction. Without this, a user who already has an
+// account can't accept an invite to a second org — team growth would break.
+export async function acceptInviteAsUserAction(_prev: unknown, formData: FormData) {
+  const session = await auth();
+  const userId = (session?.user as { id?: string })?.id;
+  if (!userId) return { error: "Please sign in to accept this invitation." };
+  const token = String(formData.get("invite") || "").trim();
+  if (!token) return { error: "Missing invite token." };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inv = await client.query(
+      `SELECT id::text, org_id::text, role FROM invitations
+       WHERE token = $1 AND accepted_at IS NULL AND expires_at > NOW() FOR UPDATE`,
+      [token]
+    );
+    if (!inv.rowCount) {
+      await client.query("ROLLBACK");
+      return { error: "This invitation is invalid or has expired." };
+    }
+    const { org_id: orgId, role } = inv.rows[0];
+    await client.query(
+      `INSERT INTO memberships (user_id, org_id, role) VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, org_id) DO NOTHING`,
+      [userId, orgId, role]
+    );
+    await client.query("UPDATE invitations SET accepted_at = NOW() WHERE id = $1", [inv.rows[0].id]);
+    await client.query("COMMIT");
+    return { error: "", orgId, role };
+  } catch {
+    await client.query("ROLLBACK");
+    return { error: "Could not accept the invitation." };
+  } finally {
+    client.release();
+  }
 }

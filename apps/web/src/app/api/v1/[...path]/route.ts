@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth as getSession } from "@/auth";
 import { roleAtLeast } from "@/lib/db";
 import "@/lib/collector-auth-providers"; // side-effect: registers the resolver (no-op in OSS, OAuth/org in cloud)
-import { resolveCollectorAuth } from "@/lib/collector-auth";
+import { resolveCollectorAuth, resolveEffectiveRole, resolvePathAllowed } from "@/lib/collector-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,10 @@ function collectorBase(): string {
 async function forbidViewerMutation(req: NextRequest): Promise<NextResponse | null> {
   if (req.method === "GET" || req.method === "HEAD") return null;
   const session = await getSession();
-  const role = (session?.user as { role?: string })?.role;
+  // Prefer the DB-verified role for the active org (cloud); the JWT `role` is
+  // client-settable via update() and must never be the sole write gate. OSS has
+  // no resolver → falls back to the session role (single implicit org).
+  const role = (await resolveEffectiveRole(session)) ?? (session?.user as { role?: string })?.role;
   if (!roleAtLeast(role, "member")) {
     return NextResponse.json({ error: "insufficient role" }, { status: 403 });
   }
@@ -37,6 +40,14 @@ async function forbidViewerMutation(req: NextRequest): Promise<NextResponse | nu
 async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
   const denied = await forbidViewerMutation(req);
   if (denied) return denied;
+  const session = await getSession();
+
+  // Plan gate: refuse data the active org's plan doesn't include (governance /
+  // identity / compliance), so deep-links and direct API calls can't bypass the
+  // nav/screen gating. No-op in OSS (no gate registered).
+  if (!(await resolvePathAllowed(session, path.join("/")))) {
+    return NextResponse.json({ error: "plan upgrade required" }, { status: 403 });
+  }
   const target = `${collectorBase()}/v1/${path.join("/")}${req.nextUrl.search}`;
 
   const headers = new Headers();
@@ -44,7 +55,6 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
   // attaches the right credentials per edition: the server org key (Community)
   // or a service token + active-org headers (Cloud, so data is scoped to the
   // user's org). A logged-in user never pastes an API key to see their data.
-  const session = await getSession();
   const incoming = (req.headers.get("authorization") || "").replace(/^Bearer\s*/i, "").trim();
   const auth = await resolveCollectorAuth(session, incoming);
   for (const [k, v] of Object.entries(auth.headers)) {

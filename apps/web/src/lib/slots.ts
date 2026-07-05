@@ -13,8 +13,14 @@ export interface NavSlotItem {
   label: string;
   /** lucide-react icon name, resolved by the Sidebar against its icon map. */
   icon: string;
-  /** Optional feature flag that must be enabled for this item to render. */
+  /** Optional EDITION flag (build-time NEXT_PUBLIC_FEATURE_*) — gates whether the
+   *  item's code ships in this edition at all. */
   feature?: string;
+  /** Optional PLAN feature (from shared/pricing.ts) — gates whether the current
+   *  org's plan entitles it. Non-entitled items render with an "upgrade" badge
+   *  and their screen shows an upsell (kept visible for discoverability). Left to
+   *  a bare string so this open module needn't import the commercial pricing types. */
+  planFeature?: string;
   /** Sidebar section to place this item in (defaults to "observability"). */
   section?: "agents" | "platforms" | "mcp" | "observability" | "settings";
 }
@@ -37,9 +43,13 @@ export function navSlotItems(): readonly NavSlotItem[] {
 // (e.g. the org switcher in the sidebar). Empty in OSS.
 import type { ComponentType } from "react";
 
-export type WidgetSlot = "sidebarTop" | "agentTrustGovernance";
+export type WidgetSlot = "sidebarTop" | "sidebarBottom" | "agentTrustGovernance";
 
-const widgets: Record<WidgetSlot, ComponentType[]> = { sidebarTop: [], agentTrustGovernance: [] };
+const widgets: Record<WidgetSlot, ComponentType[]> = {
+  sidebarTop: [],
+  sidebarBottom: [],
+  agentTrustGovernance: [],
+};
 
 /** Mount a component into a named widget slot. Called by commercial packages. */
 export function registerWidget(slot: WidgetSlot, component: ComponentType): void {
@@ -49,4 +59,25 @@ export function registerWidget(slot: WidgetSlot, component: ComponentType): void
 /** Components contributed to a widget slot (empty in OSS). */
 export function slotWidgets(slot: WidgetSlot): readonly ComponentType[] {
   return widgets[slot];
+}
+
+// Plan-features provider: the cloud build registers a hook that returns the
+// active org's entitled plan features (for per-org, plan-based nav gating). The
+// open edition registers none → planFeature items are shown ungated (edition
+// flags already decide what ships). `loading` suppresses premature "locked"
+// badges while the plan is being fetched.
+export type PlanFeatures = { features: readonly string[]; loading: boolean };
+type PlanFeaturesProvider = () => PlanFeatures;
+let planFeaturesProvider: PlanFeaturesProvider | null = null;
+
+/** Register the hook that resolves the current org's plan features (cloud only). */
+export function registerPlanFeaturesProvider(fn: PlanFeaturesProvider): void {
+  planFeaturesProvider = fn;
+}
+
+/** Read the current org's plan features, or null when no provider is registered
+ *  (open edition). This IS a hook (calls the registered hook) — call it
+ *  unconditionally from a component; the provider is stable per build. */
+export function usePlanFeatures(): PlanFeatures | null {
+  return planFeaturesProvider ? planFeaturesProvider() : null;
 }
