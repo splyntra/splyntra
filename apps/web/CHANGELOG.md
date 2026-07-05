@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/splyntra/splyntra/compare/dashboard-v1.3.0...dashboard-v1.4.0) (2026-07-05)
+
+
+### Features
+
+* fix cloud interactions ([4ded0d1](https://github.com/splyntra/splyntra/commit/4ded0d10cebcaa81ffca2414492ec8100fe25e11))
+
 ## [1.3.0](https://github.com/splyntra/splyntra/compare/dashboard-v1.2.0...dashboard-v1.3.0) (2026-07-03)
 
 
