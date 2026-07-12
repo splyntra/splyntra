@@ -9,6 +9,7 @@ import { PageHeader, StatCard } from "@/components/ui/primitives";
 import { SourceFilter } from "@/components/ui/SourceFilter";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { BudgetsSection } from "./BudgetsSection";
 import { PricingEditor } from "./PricingEditor";
 
@@ -149,7 +150,17 @@ export default function CostsPage() {
       {models.length > 0 && (
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cost detail by model</h2>
-          <SearchInput value={mtc.q} onChange={mtc.setQ} placeholder="Search models…" className="max-w-xs" />
+          <div className="flex items-center gap-2">
+            <SearchInput value={mtc.q} onChange={mtc.setQ} placeholder="Search models…" className="max-w-xs" />
+            <ExportButton rows={mtc.filtered} filename="costs-by-model" sheetName="Cost by model" columns={[
+              { header: "Model", value: (m: CostModelItem) => m.model },
+              { header: "Calls", value: (m: CostModelItem) => m.call_count },
+              { header: "Prompt Tokens", value: (m: CostModelItem) => m.total_prompt_tokens },
+              { header: "Completion Tokens", value: (m: CostModelItem) => m.total_completion_tokens },
+              { header: "Total Cost (USD)", value: (m: CostModelItem) => m.total_cost },
+              { header: "Avg/Call (USD)", value: (m: CostModelItem) => m.avg_cost_per_call },
+            ]} />
+          </div>
         </div>
       )}
       <div className="bg-white dark:bg-gray-900 rounded-lg border overflow-hidden">
@@ -211,7 +222,7 @@ export default function CostsPage() {
               </tr>
             </tfoot>
           </table>
-          <TablePagination page={mtc.page} pageCount={mtc.pageCount} pageSize={mtc.pageSize} total={mtc.total} onPage={mtc.setPage} unit="model" />
+          <TablePagination page={mtc.page} pageCount={mtc.pageCount} pageSize={mtc.pageSize} total={mtc.total} onPage={mtc.setPage} onPageSize={mtc.setPageSize} unit="model" />
           </>
         )}
       </div>

@@ -47,7 +47,7 @@ export interface TokenUsage {
 }
 
 export interface Detection {
-  detector: "pii" | "secrets" | "injection";
+  detector: "pii" | "secrets" | "injection" | "moderation" | "tool_guard";
   category: string;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   confidence: number;

@@ -18,7 +18,7 @@ dependencies = [
 injection = [
     "transformers>=4.40.0",
     "torch>=2.2.0",
-    "optimum>=1.19.0",
+    "optimum[onnxruntime]>=1.19.0",
 ]
 dev = [
     "pytest>=8.0",

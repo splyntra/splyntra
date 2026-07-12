@@ -5,9 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 import {
   fetchTraces,
   fetchTrace,
+  fetchLogs,
+  LogListResponse,
+  LogQueryOpts,
   fetchIncidents,
+  fetchIncidentSummary,
   IncidentQueryOpts,
   IncidentListResponse,
+  IncidentSummary,
   fetchAgents,
   fetchCosts,
   fetchPricing,
@@ -51,11 +56,29 @@ export function useTraces(opts: TraceQueryOpts = {}) {
   });
 }
 
+export function useLogs(opts: LogQueryOpts = {}) {
+  const { projectId } = useProject();
+  return useQuery<LogListResponse>({
+    queryKey: ["logs", opts, projectId],
+    queryFn: () => fetchLogs(opts),
+    retry: 1,
+  });
+}
+
 export function useSecurityIncidents(opts: IncidentQueryOpts = {}) {
   const { projectId } = useProject();
   return useQuery<IncidentListResponse>({
     queryKey: ["security-incidents", opts, projectId],
     queryFn: () => fetchIncidents(opts),
+    retry: 1,
+  });
+}
+
+export function useSecuritySummary(opts: IncidentQueryOpts = {}) {
+  const { projectId } = useProject();
+  return useQuery<IncidentSummary>({
+    queryKey: ["security-summary", opts, projectId],
+    queryFn: () => fetchIncidentSummary(opts),
     retry: 1,
   });
 }
@@ -149,6 +172,32 @@ export function useEvalRuns(datasetId?: string) {
   return useQuery<{ runs: EvalRun[] }>({
     queryKey: ["eval-runs", datasetId ?? "all"],
     queryFn: () => fetchEvalRuns(datasetId),
+    retry: 1,
+  });
+}
+
+export function useScorers() {
+  return useQuery<{ scorers: import("@/lib/api").Scorer[] }>({
+    queryKey: ["eval-scorers"],
+    queryFn: () => import("@/lib/api").then((m) => m.fetchScorers()),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function useEvalDataset(id: string | null) {
+  return useQuery<import("@/lib/api").DatasetDetail>({
+    queryKey: ["eval-dataset", id],
+    queryFn: () => import("@/lib/api").then((m) => m.fetchDataset(id!)),
+    enabled: !!id,
+    retry: 1,
+  });
+}
+
+export function useEvalLeaderboard(datasetId?: string) {
+  return useQuery<{ leaderboard: import("@/lib/api").LeaderboardRow[] }>({
+    queryKey: ["eval-leaderboard", datasetId ?? "all"],
+    queryFn: () => import("@/lib/api").then((m) => m.fetchEvalLeaderboard(datasetId)),
     retry: 1,
   });
 }

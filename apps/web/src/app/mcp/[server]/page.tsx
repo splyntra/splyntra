@@ -10,6 +10,7 @@ import { SourceBadge } from "@/components/ui/SourceBadge";
 import { Select } from "@/components/ui/Select";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { useSpanMetrics } from "@/lib/hooks";
 
 const WINDOWS = [
@@ -60,7 +61,7 @@ export default function McpServerDashboardPage() {
         icon={Server}
         title={server}
         badge={<SourceBadge source="mcp" />}
-        subtitle="Per-server monitoring — call volume, failures, permission violations, and latency by tool."
+        subtitle="Per-server monitoring — call volume, failures, flagged calls, and latency by tool."
         action={
           <Select value={String(windowSec)} onValueChange={(v) => setWindowSec(Number(v))} ariaLabel="Time window" className="min-w-[150px]"
             options={WINDOWS.map((w) => ({ value: String(w.value), label: w.label }))} />
@@ -87,7 +88,19 @@ export default function McpServerDashboardPage() {
             <Wrench className="h-4 w-4 text-gray-500" />
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Tools</h2>
           </div>
-          {tools.length > 0 && <SearchInput value={ttc.q} onChange={ttc.setQ} placeholder="Search tools…" className="max-w-[200px]" />}
+          {tools.length > 0 && (
+            <div className="flex items-center gap-2">
+              <SearchInput value={ttc.q} onChange={ttc.setQ} placeholder="Search tools…" className="max-w-[180px]" />
+              <ExportButton rows={ttc.filtered} filename={`${server}-tools`} sheetName="Tools" columns={[
+                { header: "Tool", value: (t) => t.key || "" },
+                { header: "Calls", value: (t) => t.count },
+                { header: "Failed", value: (t) => t.error_count },
+                { header: "Flagged", value: (t) => t.flagged || 0 },
+                { header: "Avg (ms)", value: (t) => Math.round(t.avg_ms) },
+                { header: "p95 (ms)", value: (t) => Math.round(t.p95_ms) },
+              ]} />
+            </div>
+          )}
         </div>
         {tools.length === 0 ? (
           <EmptyState icon={Wrench} title="No tool calls yet">Tool-level breakdown appears as this server handles calls.</EmptyState>
@@ -119,19 +132,19 @@ export default function McpServerDashboardPage() {
               ))}
             </tbody>
           </table>
-          <TablePagination page={ttc.page} pageCount={ttc.pageCount} pageSize={ttc.pageSize} total={ttc.total} onPage={ttc.setPage} unit="tool" />
+          <TablePagination page={ttc.page} pageCount={ttc.pageCount} pageSize={ttc.pageSize} total={ttc.total} onPage={ttc.setPage} onPageSize={ttc.setPageSize} unit="tool" />
           </>
         )}
       </Card>
 
-      {/* Permission violations */}
+      {/* Flagged tool calls */}
       <Card className="overflow-hidden">
         <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
           <ShieldAlert className="h-4 w-4 text-gray-500" />
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Permission violations</h2>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Flagged tool calls</h2>
         </div>
         {flaggedTools.length === 0 ? (
-          <EmptyState icon={CheckCircle2} title="No flagged calls">No permission violations or security detections on this server’s tools.</EmptyState>
+          <EmptyState icon={CheckCircle2} title="No flagged calls">No security detections on this server’s tools.</EmptyState>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-gray-800">
             {flaggedTools.map((t) => (

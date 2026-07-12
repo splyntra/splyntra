@@ -60,10 +60,29 @@ export function TraceViewer({ trace }: TraceViewerProps) {
         </div>
       </Card>
 
-      {/* Detections Panel */}
-      {trace.detections.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/20">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-red-800 dark:text-red-200">
+      {/* Detections Panel — tone follows the highest-severity detection so a
+          medium-risk trace doesn't scream critical-red. */}
+      {trace.detections.length > 0 && (() => {
+        const rank = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 } as const;
+        const top = trace.detections.reduce(
+          (m, d) => (rank[d.severity] > rank[m] ? d.severity : m),
+          "LOW" as Detection["severity"]
+        );
+        const tone =
+          rank[top] >= 3
+            ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20"
+            : rank[top] === 2
+            ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20"
+            : "border-yellow-200 bg-yellow-50 dark:border-yellow-900/60 dark:bg-yellow-950/20";
+        const head =
+          rank[top] >= 3
+            ? "text-red-800 dark:text-red-200"
+            : rank[top] === 2
+            ? "text-amber-800 dark:text-amber-200"
+            : "text-yellow-800 dark:text-yellow-200";
+        return (
+        <div className={`rounded-xl border p-4 ${tone}`}>
+          <h3 className={`mb-2 flex items-center gap-2 text-sm font-semibold ${head}`}>
             <ShieldAlert className="h-4 w-4" />
             Security Detections ({trace.detections.length})
           </h3>
@@ -73,7 +92,8 @@ export function TraceViewer({ trace }: TraceViewerProps) {
             ))}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Span Waterfall (Replay View) */}
       <Card>
@@ -193,20 +213,29 @@ function CodeBlock({ label, value }: { label: string; value: Record<string, unkn
   );
 }
 
+const DETECTOR_LABEL: Record<string, string> = {
+  pii: "PII",
+  secrets: "Secret",
+  injection: "Injection",
+  moderation: "Moderation",
+  tool_guard: "Tool guard",
+};
+
 function DetectionRow({ detection }: { detection: Detection }) {
   return (
     <div className="flex items-center gap-2 text-sm">
       <SeverityBadge severity={detection.severity} />
-      <span className="text-gray-700 dark:text-gray-300">{detection.description}</span>
-      <span
-        className={`rounded px-1 text-[10px] font-medium uppercase ${
-          detection.beta
-            ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-        }`}
-      >
-        {detection.beta ? "beta" : "reliable"}
+      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+        {DETECTOR_LABEL[detection.detector] || detection.detector}
       </span>
+      <span className="text-gray-700 dark:text-gray-300">{detection.description}</span>
+      {/* Only flag experimental detectors — a GA detector's honesty signal is its
+          confidence %, not a "reliable" label that overstates certainty. */}
+      {detection.beta && (
+        <span className="rounded bg-amber-100 px-1 text-[10px] font-medium uppercase text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+          beta
+        </span>
+      )}
       <span className="ml-auto text-xs tabular-nums text-gray-400">
         {Math.round(detection.confidence * 100)}% confidence
       </span>

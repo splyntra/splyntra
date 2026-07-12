@@ -32,20 +32,31 @@ type injPattern struct {
 	re          *regexp.Regexp
 	category    string
 	description string
+	// block marks a pattern precise enough to hard-block on inline (an unambiguous
+	// attack signature). Loose, high-recall/low-precision patterns (persona/pretense
+	// phrasing that also appears in legitimate role-play prompts) are false-flag risks
+	// on the synchronous path, so they only surface as reasons — the async ML detector
+	// (DeBERTa) makes the nuanced call. This keeps the inline guard from blocking
+	// benign traffic in production while still recording the signal.
+	block bool
 }
 
 // injectionPatterns mirror apps/security/detectors/injection.py so the inline Go
 // verdict matches the async detector's categories. Heuristics only — the ML
 // classifier stays server-side/async.
 var injectionPatterns = []injPattern{
-	{regexp.MustCompile(`(?i)ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)`), "instruction_override", "Attempt to override system instructions"},
-	{regexp.MustCompile(`(?i)you\s+are\s+now\s+`), "persona_hijack", "Attempt to reassign agent persona"},
-	{regexp.MustCompile(`(?i)forget\s+(everything|all|your)\s+(you\s+)?(know|learned|instructions?)`), "memory_wipe", "Attempt to clear agent instructions"},
-	{regexp.MustCompile(`(?i)system\s*:\s*you\s+are`), "system_prompt_injection", "Injected system prompt"},
-	{regexp.MustCompile(`(?i)(do\s+not|don'?t)\s+follow\s+(your|the|any)\s+(instructions?|rules?|guidelines?)`), "instruction_override", "Attempt to disable instruction following"},
-	{regexp.MustCompile(`(?i)pretend\s+(you\s+are|to\s+be|that)`), "persona_hijack", "Attempt to override agent behavior via pretense"},
-	{regexp.MustCompile(`(?i)reveal\s+(your|the|system)\s+(system\s+)?(prompt|instructions?|rules?)`), "prompt_extraction", "Attempt to extract system prompt"},
-	{regexp.MustCompile(`(?i)\[INST\]|\[/INST\]|<\|im_start\|>|<\|im_end\|>`), "format_exploitation", "Chat template format tokens in user input"},
+	{regexp.MustCompile(`(?i)ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)`), "instruction_override", "Attempt to override system instructions", true},
+	{regexp.MustCompile(`(?i)you\s+are\s+now\s+`), "persona_hijack", "Attempt to reassign agent persona", false},
+	{regexp.MustCompile(`(?i)forget\s+(everything|all|your)\s+(you\s+)?(know|learned|instructions?)`), "memory_wipe", "Attempt to clear agent instructions", true},
+	{regexp.MustCompile(`(?i)system\s*:\s*you\s+are`), "system_prompt_injection", "Injected system prompt", true},
+	{regexp.MustCompile(`(?i)(do\s+not|don'?t)\s+follow\s+(your|the|any)\s+(instructions?|rules?|guidelines?)`), "instruction_override", "Attempt to disable instruction following", true},
+	{regexp.MustCompile(`(?i)pretend\s+(you\s+are|to\s+be|that)`), "persona_hijack", "Attempt to override agent behavior via pretense", false},
+	{regexp.MustCompile(`(?i)reveal\s+(your|the|system)\s+(system\s+)?(prompt|instructions?|rules?)`), "prompt_extraction", "Attempt to extract system prompt", true},
+	{regexp.MustCompile(`(?i)\[INST\]|\[/INST\]|<\|im_start\|>|<\|im_end\|>`), "format_exploitation", "Chat template format tokens in user input", true},
+	// Jailbreak templates (kept in sync with injection.py's jailbreak patterns).
+	{regexp.MustCompile(`(?i)\b(dan\s+mode|do\s+anything\s+now|developer\s+mode|jailbreak|AIM|stay\s+in\s+character\s+as)\b`), "jailbreak", "Known jailbreak persona/template", true},
+	{regexp.MustCompile(`(?i)(without\s+(any\s+)?(restrictions?|filters?|guidelines?|censorship)|\bunfiltered\b|\bunrestricted\b|no\s+(restrictions?|filters?|limits?|rules?|guidelines?)|no\s+longer\s+bound\s+by)`), "jailbreak", "Attempt to remove safety constraints", true},
+	{regexp.MustCompile(`(?i)(enable|activate)\s+(developer|god|unrestricted|admin)\s+mode`), "jailbreak", "Attempt to activate an unrestricted mode", true},
 }
 
 // Engine evaluates content against the inline rule set. It reuses the collector's
@@ -69,23 +80,30 @@ func (e *Engine) Evaluate(content string) Decision {
 	}
 
 	var reasons []string
+	blocked := false
 	for _, p := range e.injection {
 		if p.re.MatchString(content) {
 			reasons = append(reasons, "injection:"+p.category)
+			if p.block {
+				blocked = true
+			}
 		}
 	}
-	if len(reasons) > 0 {
+	// Only hard-block on a high-precision signature. A loose-only match (e.g. a
+	// bare persona/pretense phrase) is reported via Reasons but does not block the
+	// call — the async DeBERTa detector adjudicates those to avoid false positives.
+	if blocked {
 		return Decision{Action: ActionBlock, Reasons: reasons}
 	}
 
 	redacted, hits := e.redactor.RedactString(content)
 	if len(hits) > 0 {
-		rs := make([]string, 0, len(hits))
 		for _, h := range hits {
-			rs = append(rs, "secret:"+h)
+			reasons = append(reasons, "secret:"+h)
 		}
-		return Decision{Action: ActionRedact, Reasons: rs, Redacted: redacted}
+		return Decision{Action: ActionRedact, Reasons: reasons, Redacted: redacted}
 	}
 
-	return Decision{Action: ActionAllow}
+	// Allow, but still surface any loose injection signal so the caller can log it.
+	return Decision{Action: ActionAllow, Reasons: reasons}
 }

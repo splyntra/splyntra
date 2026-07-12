@@ -7,6 +7,7 @@ import { usePricing } from "@/lib/hooks";
 import { upsertPricing, deletePricing } from "@/lib/api";
 import { Tag, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/primitives";
+import { useTableControls, TablePagination } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 
@@ -27,6 +28,7 @@ export function PricingEditor() {
 
   const prices = data?.prices || [];
   const unpriced = data?.unpriced || [];
+  const ptc = useTableControls(prices, { pageSize: 10, sortAccessors: { model: (p) => p.model.toLowerCase() } });
   const refresh = () => qc.invalidateQueries({ queryKey: ["pricing"] });
 
   async function save(e: React.FormEvent) {
@@ -116,7 +118,7 @@ export function PricingEditor() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {prices.map((p) => (
+                {ptc.view.map((p) => (
                   <tr key={p.model} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
                     <td className="px-4 py-2.5 font-mono text-xs text-gray-900 dark:text-white">{p.model}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">${p.prompt_per_1k}</td>
@@ -130,6 +132,7 @@ export function PricingEditor() {
               </tbody>
             </table>
           </div>
+          <TablePagination page={ptc.page} pageCount={ptc.pageCount} pageSize={ptc.pageSize} total={ptc.total} onPage={ptc.setPage} onPageSize={ptc.setPageSize} unit="model" />
           <form onSubmit={save} className="flex flex-wrap items-end gap-3 border-t border-gray-100 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-900/50">
             <label className="min-w-[160px] flex-1">
               <span className="mb-1 block text-[12px] font-medium text-gray-600 dark:text-gray-400">Model</span>

@@ -9,6 +9,7 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { Select } from "@/components/ui/Select";
 import { SourceFilter } from "@/components/ui/SourceFilter";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { useSpanMetrics } from "@/lib/hooks";
 import { SpanMetricGroup, SourceScope } from "@/lib/api";
 
@@ -40,7 +41,19 @@ function MetricTable({ title, icon: Icon, rows, keyLabel, loading }: { title: st
           <Icon className="h-4 w-4 text-gray-500" />
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h2>
         </div>
-        {rows.length > 0 && <SearchInput value={tc.q} onChange={tc.setQ} placeholder={`Search ${title.toLowerCase()}…`} className="max-w-[220px]" />}
+        {rows.length > 0 && (
+          <div className="flex items-center gap-2">
+            <SearchInput value={tc.q} onChange={tc.setQ} placeholder={`Search ${title.toLowerCase()}…`} className="max-w-[200px]" />
+            <ExportButton rows={tc.filtered} columns={[
+              { header: keyLabel, value: (r: SpanMetricGroup) => r.key || "unknown" },
+              { header: "Calls", value: (r: SpanMetricGroup) => r.count },
+              { header: "Failed", value: (r: SpanMetricGroup) => r.error_count },
+              { header: "Flagged", value: (r: SpanMetricGroup) => r.flagged || 0 },
+              { header: "Avg (ms)", value: (r: SpanMetricGroup) => Math.round(r.avg_ms) },
+              { header: "p95 (ms)", value: (r: SpanMetricGroup) => Math.round(r.p95_ms) },
+            ]} filename={title.toLowerCase().replace(/[^a-z0-9]+/g, "-")} sheetName={title.slice(0, 31)} />
+          </div>
+        )}
       </div>
       {loading ? (
         <div className="h-32 animate-pulse bg-gray-50 dark:bg-gray-900/40" />
@@ -74,7 +87,7 @@ function MetricTable({ title, icon: Icon, rows, keyLabel, loading }: { title: st
             ))}
           </tbody>
         </table>
-        <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="row" />
+        <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="row" />
         </>
       )}
     </Card>
@@ -137,7 +150,7 @@ export default function ToolsPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300"><Server className="h-4 w-4" /></span>
             <div>
               <div className="text-sm font-semibold text-gray-900 dark:text-white">MCP Servers</div>
-              <div className="text-[12px] text-gray-500">Per-server calls, failures, permission violations, and tool latency live in their own section.</div>
+              <div className="text-[12px] text-gray-500">Per-server calls, failures, flagged calls, and tool latency live in their own section.</div>
             </div>
           </div>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-splyntra-600 group-hover:underline dark:text-splyntra-300">Open MCP Servers <ArrowUpRight className="h-3.5 w-3.5" /></span>

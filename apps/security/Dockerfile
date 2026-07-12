@@ -13,6 +13,13 @@ RUN pip install --no-cache-dir -e ".[injection]" && \
 # install above cached when only this changes).
 RUN python -m spacy download en_core_web_sm
 
+# Bundle the prompt-injection classifier as ONNX so ML injection detection runs
+# offline (no runtime HuggingFace download). Copy just the script first so this
+# heavy layer stays cached across ordinary code changes.
+ENV SPLYNTRA_INJECTION_MODEL_DIR=/app/models/injection-onnx
+COPY scripts/bundle_injection_onnx.py scripts/bundle_injection_onnx.py
+RUN python scripts/bundle_injection_onnx.py
+
 COPY . .
 RUN chown -R splyntra:splyntra /app
 

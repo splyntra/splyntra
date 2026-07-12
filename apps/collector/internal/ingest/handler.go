@@ -21,8 +21,10 @@ import (
 	"github.com/splyntra/splyntra/apps/collector/internal/streaming"
 	"github.com/splyntra/splyntra/apps/collector/internal/tenant"
 	"github.com/splyntra/splyntra/apps/collector/internal/validate"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
@@ -120,6 +122,139 @@ func (h *Handler) ReceiveTraces(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-protobuf")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(respBytes)
+}
+
+// ReceiveLogs handles OTLP /v1/logs (protobuf or JSON). Structured agent logs are
+// redacted, trace-correlated (trace_id/span_id from the LogRecord), and stored.
+func (h *Handler) ReceiveLogs(w http.ResponseWriter, r *http.Request) {
+	tenantInfo := r.Context().Value(auth.TenantContextKey).(*auth.TenantInfo)
+
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize))
+	if err != nil {
+		http.Error(w, `{"error":"failed to read body"}`, http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var req collogspb.ExportLogsServiceRequest
+	switch r.Header.Get("Content-Type") {
+	case "application/x-protobuf", "application/protobuf":
+		if err := proto.Unmarshal(body, &req); err != nil {
+			http.Error(w, `{"error":"invalid protobuf"}`, http.StatusBadRequest)
+			return
+		}
+	default:
+		// OTLP/JSON is camelCase — must use protojson, not encoding/json (see ReceiveTraces).
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(body, &req); err != nil {
+			http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+			return
+		}
+	}
+
+	logs := h.otlpToLogEvents(&req, tenantInfo)
+	if h.store != nil {
+		for _, l := range logs {
+			if err := h.store.InsertLog(r.Context(), l); err != nil {
+				h.logger.Error("store log failed", zap.Error(err))
+			}
+		}
+	}
+	h.logger.Info("logs received",
+		zap.String("org", tenantInfo.OrgID),
+		zap.String("project", tenantInfo.ProjectID),
+		zap.Int("logs", len(logs)),
+	)
+
+	resp := &collogspb.ExportLogsServiceResponse{}
+	respBytes, _ := proto.Marshal(resp)
+	w.Header().Set("Content-Type", "application/x-protobuf")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(respBytes)
+}
+
+// otlpSeverity maps an OTLP SeverityNumber (1-24) or text to our 6-level enum.
+func otlpSeverity(num logspb.SeverityNumber, text string) string {
+	switch {
+	case num >= 21:
+		return "FATAL"
+	case num >= 17:
+		return "ERROR"
+	case num >= 13:
+		return "WARN"
+	case num >= 9:
+		return "INFO"
+	case num >= 5:
+		return "DEBUG"
+	case num >= 1:
+		return "TRACE"
+	}
+	switch strings.ToUpper(strings.TrimSpace(text)) {
+	case "FATAL", "CRITICAL":
+		return "FATAL"
+	case "ERROR", "ERR":
+		return "ERROR"
+	case "WARN", "WARNING":
+		return "WARN"
+	case "DEBUG":
+		return "DEBUG"
+	case "TRACE":
+		return "TRACE"
+	default:
+		return "INFO"
+	}
+}
+
+// otlpToLogEvents flattens OTLP resource/scope/records into redacted LogEvents,
+// enriched with tenant metadata and the resource's agent name.
+func (h *Handler) otlpToLogEvents(req *collogspb.ExportLogsServiceRequest, tenant *auth.TenantInfo) []*streaming.LogEvent {
+	tenantAttrs := h.tenantResolver.Enrich(tenant.OrgID, tenant.ProjectID, tenant.Env)
+	var out []*streaming.LogEvent
+	for _, rl := range req.ResourceLogs {
+		agentID := ""
+		if rl.Resource != nil {
+			for _, a := range rl.Resource.Attributes {
+				if a.Key == "service.name" || a.Key == "splyntra.agent.name" {
+					agentID = a.Value.GetStringValue()
+				}
+			}
+		}
+		for _, sl := range rl.ScopeLogs {
+			for _, rec := range sl.LogRecords {
+				bodyStr := rec.Body.GetStringValue()
+				if bodyStr == "" && rec.Body != nil {
+					bodyStr = fmt.Sprintf("%v", rec.Body.Value)
+				}
+				redBody, _ := h.redactor.RedactString(bodyStr)
+				attrs := otlpAttrsToMap(rec.Attributes)
+				if attrs == nil {
+					attrs = map[string]string{}
+				}
+				for k, v := range tenantAttrs {
+					attrs[k] = v
+				}
+				ts := time.Unix(0, int64(rec.TimeUnixNano)).UTC()
+				if rec.TimeUnixNano == 0 {
+					ts = time.Unix(0, int64(rec.ObservedTimeUnixNano)).UTC()
+				}
+				if ts.IsZero() || rec.TimeUnixNano == 0 && rec.ObservedTimeUnixNano == 0 {
+					ts = time.Now().UTC()
+				}
+				out = append(out, &streaming.LogEvent{
+					Timestamp:   ts,
+					OrgID:       tenant.OrgID,
+					ProjectID:   tenant.ProjectID,
+					Environment: tenant.Env,
+					AgentID:     agentID,
+					TraceID:     hex.EncodeToString(rec.TraceId),
+					SpanID:      hex.EncodeToString(rec.SpanId),
+					Severity:    otlpSeverity(rec.SeverityNumber, rec.SeverityText),
+					Body:        redBody,
+					Attributes:  attrs,
+				})
+			}
+		}
+	}
+	return out
 }
 
 // persistTraces publishes traces for detection, writes them to ClickHouse, and

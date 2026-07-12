@@ -223,6 +223,8 @@ func Run() {
 		r.Use(apiKeyAuth.Middleware)
 		// OTLP traces endpoint
 		r.Post("/traces", handler.ReceiveTraces)
+		// OTLP structured logs ingest (Layer 1 Observability)
+		r.Post("/logs", handler.ReceiveLogs)
 		// Legacy event endpoint (for backwards compat)
 		r.Post("/events", handler.ReceiveEvents)
 		// Out-of-process integration webhooks
@@ -242,6 +244,7 @@ func Run() {
 		// Query endpoints (dashboard uses these)
 		r.Get("/traces", queryHandler.ListTraces)
 		r.Get("/traces/{traceID}", queryHandler.GetTrace)
+		r.Get("/logs", queryHandler.ListLogs)
 		r.Get("/agents", queryHandler.ListAgents)
 		// Agent profiles (Connect wizard): create mints an ingest key + returns it once.
 		r.Post("/agents", queryHandler.CreateAgent)
@@ -255,6 +258,7 @@ func Run() {
 		r.Get("/metrics", queryHandler.ListMetrics)
 		r.Get("/metrics/spans", queryHandler.ListSpanMetrics)
 		r.Get("/security/incidents", queryHandler.ListSecurityIncidents)
+		r.Get("/security/summary", queryHandler.SecuritySummary)
 		r.Get("/projects", queryHandler.ListProjects)
 		// Provisioning (requires an "admin"-scoped key): projects + API keys
 		r.Post("/projects", queryHandler.CreateProject)

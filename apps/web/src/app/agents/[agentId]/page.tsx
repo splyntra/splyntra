@@ -15,6 +15,7 @@ import { SourceBadge } from "@/components/ui/SourceBadge";
 import { Select } from "@/components/ui/Select";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import {
   Bot, ArrowLeft, Activity, AlertCircle, Clock, Coins, DollarSign,
@@ -28,6 +29,13 @@ const WINDOWS = [
   { label: "Last 30d", value: 2592000 },
 ];
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
+const DETECTOR_LABEL: Record<string, string> = {
+  pii: "PII",
+  secrets: "Secret",
+  injection: "Injection",
+  moderation: "Moderation",
+  tool_guard: "Tool guard",
+};
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -168,10 +176,18 @@ function SecurityCard({ incidents, loading, sevCounts, full }: { incidents: Dete
             {incidents.slice(0, full ? 100 : 8).map((d, i) => (
               <li key={`${d.trace_id}-${d.span_id}-${d.category}-${i}`} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2"><SeverityBadge severity={d.severity} /><span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{d.category}</span></div>
+                  <div className="flex items-center gap-2">
+                    <SeverityBadge severity={d.severity} />
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">{DETECTOR_LABEL[d.detector] || d.detector}</span>
+                    <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{d.category}</span>
+                    {d.is_beta === 1 && <span className="text-[10px] font-semibold uppercase text-amber-600">beta</span>}
+                  </div>
                   <p className="mt-0.5 truncate text-xs text-gray-500">{d.description}</p>
                 </div>
-                <Link href={`/traces/${encodeURIComponent(d.trace_id)}`} className="shrink-0 text-xs text-splyntra-600 hover:underline">View trace</Link>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-xs tabular-nums text-gray-400">{Math.round((d.confidence || 0) * 100)}%</span>
+                  <Link href={`/traces/${encodeURIComponent(d.trace_id)}`} className="text-xs text-splyntra-600 hover:underline">View trace</Link>
+                </div>
               </li>
             ))}
           </ul>
@@ -235,7 +251,19 @@ function AgentCostsTab({ agent, models, loading, costPerTrace }: { agent?: Agent
       <Card className="overflow-hidden p-0">
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
           <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-gray-500" /><h2 className="text-sm font-semibold text-gray-900 dark:text-white">Cost by model</h2></div>
-          {models.length > 0 && <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search models…" className="max-w-[220px]" />}
+          {models.length > 0 && (
+            <div className="flex items-center gap-2">
+              <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search models…" className="max-w-[200px]" />
+              <ExportButton rows={tc.filtered} filename="agent-costs-by-model" sheetName="Cost by model" columns={[
+                { header: "Model", value: (m: CostModelItem) => m.model },
+                { header: "Calls", value: (m: CostModelItem) => m.call_count },
+                { header: "Prompt Tokens", value: (m: CostModelItem) => m.total_prompt_tokens },
+                { header: "Completion Tokens", value: (m: CostModelItem) => m.total_completion_tokens },
+                { header: "Total Cost (USD)", value: (m: CostModelItem) => m.total_cost },
+                { header: "Avg/Call (USD)", value: (m: CostModelItem) => m.avg_cost_per_call },
+              ]} />
+            </div>
+          )}
         </div>
         {models.length === 0 ? (
           <EmptyState icon={Coins} title="No model cost recorded">LLM spans with a model + token counts produce a cost breakdown here.</EmptyState>
@@ -267,7 +295,7 @@ function AgentCostsTab({ agent, models, loading, costPerTrace }: { agent?: Agent
                 ))}
               </tbody>
             </table>
-            <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="model" />
+            <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="model" />
           </>
         )}
       </Card>
@@ -376,7 +404,8 @@ function ConfigTab({ agentId }: { agentId: string }) {
         {row("Frameworks", Boxes, profile.frameworks)}
         {row("LLM providers", Sparkles, profile.providers)}
         {row("Vector / DB", Database, [...profile.vectordbs, ...profile.databases])}
-        <div className="flex items-center gap-3 py-3"><ShieldCheck className="h-4 w-4 text-gray-400" /><div><div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Guardrail</div><Badge tone={profile.guard_mode === "block" ? "success" : "neutral"}>{profile.guard_mode}</Badge></div></div>
+        {row("Detectors", ShieldAlert, (profile.detectors || []).map((d) => DETECTOR_LABEL[d] || d))}
+        <div className="flex items-center gap-3 py-3"><ShieldCheck className="h-4 w-4 text-gray-400" /><div><div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Guardrail mode</div><Badge tone={profile.guard_mode === "block" ? "success" : "neutral"}>{profile.guard_mode}</Badge></div></div>
         <div className="flex items-center gap-3 py-3"><Bell className="h-4 w-4 text-gray-400" /><div><div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Alerts</div><Badge tone={profile.alerts_enabled ? "success" : "muted"}>{profile.alerts_enabled ? "enabled" : "disabled"}</Badge></div></div>
       </div>
     </Card>

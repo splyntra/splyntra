@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity,
   Bot,
@@ -18,8 +18,11 @@ import {
   Clock,
   Workflow,
   Server,
+  FileDown,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
+import { exportWorkbook, ExportSheet } from "@/lib/export";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -284,6 +287,106 @@ export default function Home() {
   const connected = !metrics.isError && !traces.isError;
   const loading = metrics.isLoading || traces.isLoading;
 
+  // ── Detailed fleet report (multi-sheet Excel) ──────────────────────────────
+  const [reportBusy, setReportBusy] = useState(false);
+  async function generateReport() {
+    if (reportBusy) return;
+    setReportBusy(true);
+    try {
+      const agentsAll = agents.data?.agents ?? [];
+      const modelsAll = costs.data?.models ?? [];
+      const incidentsAll = incidents.data?.incidents ?? [];
+      const sheets: ExportSheet<any>[] = [
+        {
+          name: "Overview",
+          columns: [
+            { header: "Metric", value: (r: { m: string; v: string | number }) => r.m },
+            { header: "Value", value: (r: { m: string; v: string | number }) => r.v },
+          ],
+          rows: [
+            { m: "Report generated", v: new Date().toISOString() },
+            { m: "Window", v: "Last 24 hours" },
+            { m: "Traces (24h)", v: kpi.totalTraces },
+            { m: "Errors (24h)", v: kpi.totalErrors },
+            { m: "Error rate (%)", v: +kpi.errRate.toFixed(1) },
+            { m: "p95 latency (ms)", v: Math.round(kpi.p95) },
+            { m: "Total spend (USD)", v: +kpi.spend.toFixed(2) },
+            { m: "Agents (active 24h)", v: domains.agents.count },
+            { m: "Agent runs (24h)", v: domains.agents.runs },
+            { m: "Platforms", v: domains.platforms.count },
+            { m: "Platform workflow runs", v: domains.platforms.runs },
+            { m: "MCP servers", v: domains.mcp.count },
+            { m: "MCP tool calls", v: domains.mcp.calls },
+            { m: "High-risk traces", v: riskyCount },
+          ],
+        },
+        {
+          name: "Agents",
+          columns: [
+            { header: "Agent", value: (a) => a.name || a.agent_id },
+            { header: "Framework", value: (a) => a.framework || "" },
+            { header: "Runs", value: (a) => a.trace_count },
+            { header: "Errors", value: (a) => a.error_count },
+            { header: "P95 (ms)", value: (a) => Math.round(a.p95_latency_ms) },
+            { header: "Cost (USD)", value: (a) => a.total_cost },
+            { header: "Avg Risk", value: (a) => Math.round(a.avg_risk || 0) },
+            { header: "Last Seen", value: (a) => new Date(a.last_seen_at).toISOString() },
+          ],
+          rows: agentsAll,
+        },
+        {
+          name: "Recent traces",
+          columns: [
+            { header: "Trace ID", value: (t) => t.trace_id },
+            { header: "Agent", value: (t) => t.agent_id },
+            { header: "Status", value: (t) => t.status },
+            { header: "Latency (ms)", value: (t) => t.latency_ms },
+            { header: "Tokens", value: (t) => t.total_tokens },
+            { header: "Cost (USD)", value: (t) => t.cost_usd },
+            { header: "Risk", value: (t) => t.risk_score },
+            { header: "Started", value: (t) => new Date(t.started_at).toISOString() },
+          ],
+          rows: traceRows,
+        },
+        {
+          name: "Security",
+          columns: [
+            { header: "Detected", value: (d) => new Date(d.detected_at).toISOString() },
+            { header: "Detector", value: (d) => d.detector },
+            { header: "Category", value: (d) => d.category },
+            { header: "Severity", value: (d) => d.severity },
+            { header: "Description", value: (d) => d.description },
+            { header: "Trace ID", value: (d) => d.trace_id },
+          ],
+          rows: incidentsAll,
+        },
+        {
+          name: "Cost by model",
+          columns: [
+            { header: "Model", value: (m) => m.model },
+            { header: "Calls", value: (m) => m.call_count },
+            { header: "Prompt Tokens", value: (m) => m.total_prompt_tokens },
+            { header: "Completion Tokens", value: (m) => m.total_completion_tokens },
+            { header: "Total Cost (USD)", value: (m) => m.total_cost },
+          ],
+          rows: modelsAll,
+        },
+        {
+          name: "Throughput (24h)",
+          columns: [
+            { header: "Hour", value: (p) => new Date(p.bucket).toLocaleString() },
+            { header: "Traces", value: (p) => p.trace_count },
+            { header: "Errors", value: (p) => p.error_count },
+          ],
+          rows: points,
+        },
+      ];
+      await exportWorkbook("splyntra-report", sheets);
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       {/* Header */}
@@ -294,24 +397,35 @@ export default function Home() {
             Your agents, platforms, and MCP servers at a glance — activity, cost, and safety.
           </p>
         </div>
-        <span
-          role="status"
-          aria-live="polite"
-          title="Auto-refreshes every 10 seconds"
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm ${
-            connected
-              ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-900 dark:bg-gray-900 dark:text-emerald-300"
-              : "border-red-200 bg-white text-red-700 dark:border-red-900 dark:bg-gray-900 dark:text-red-300"
-          }`}
-        >
+        <div className="flex items-center gap-3">
+          <button
+            onClick={generateReport}
+            disabled={reportBusy}
+            title="Generate a detailed fleet report (multi-sheet Excel)"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-60 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+          >
+            {reportBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+            Generate report
+          </button>
           <span
-            aria-hidden
-            className={`h-2 w-2 rounded-full ${
-              connected ? "animate-pulse bg-emerald-500 shadow-sm shadow-emerald-500/50" : "bg-red-500"
+            role="status"
+            aria-live="polite"
+            title="Auto-refreshes every 10 seconds"
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm ${
+              connected
+                ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-900 dark:bg-gray-900 dark:text-emerald-300"
+                : "border-red-200 bg-white text-red-700 dark:border-red-900 dark:bg-gray-900 dark:text-red-300"
             }`}
-          />
-          {loading ? "Connecting…" : connected ? "Collector connected · OTLP :4318" : "Collector unreachable"}
-        </span>
+          >
+            <span
+              aria-hidden
+              className={`h-2 w-2 rounded-full ${
+                connected ? "animate-pulse bg-emerald-500 shadow-sm shadow-emerald-500/50" : "bg-red-500"
+              }`}
+            />
+            {loading ? "Connecting…" : connected ? "Collector connected · OTLP :4318" : "Collector unreachable"}
+          </span>
+        </div>
       </div>
 
       {/* Domains — the three separated data planes */}

@@ -7,6 +7,7 @@ import { useKeys, useProjects } from "@/lib/hooks";
 import { createKey, revokeKey, rotateKey, ApiKeyItem } from "@/lib/api";
 import { KeyRound, Copy, Check, RefreshCw, Trash2, ShieldCheck, AlertTriangle } from "lucide-react";
 import { PageHeader, Card, EmptyState } from "@/components/ui/primitives";
+import { useTableControls, TablePagination } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
@@ -37,6 +38,7 @@ export default function KeysPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const keys: ApiKeyItem[] = data?.keys || [];
+  const ktc = useTableControls(keys, { pageSize: 10 });
   const projects = projectsData?.projects || [];
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["keys"] });
@@ -238,7 +240,7 @@ export default function KeysPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {keys.map((k) => (
+                {ktc.view.map((k) => (
                   <tr key={k.id} className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-900/40 ${k.is_active ? "" : "opacity-60"}`}>
                     <td className="px-5 py-3.5">
                       <div className="font-medium text-gray-900 dark:text-white">{k.name}</div>
@@ -294,6 +296,7 @@ export default function KeysPage() {
                 ))}
               </tbody>
             </table>
+            <TablePagination page={ktc.page} pageCount={ktc.pageCount} pageSize={ktc.pageSize} total={ktc.total} onPage={ktc.setPage} onPageSize={ktc.setPageSize} unit="key" />
           </div>
         )}
       </Card>

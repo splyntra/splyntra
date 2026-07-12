@@ -10,6 +10,23 @@ import { SourceBadge, sourceOf } from "@/components/ui/SourceBadge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Select } from "@/components/ui/Select";
 import { useTableControls, SortableTh, TablePagination, SortState } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { ExportColumn } from "@/lib/export";
+
+// Trace export columns, shared by TraceList's toolbar and the fleet Traces page.
+export const TRACE_EXPORT_COLUMNS: ExportColumn<TraceListItem>[] = [
+  { header: "Trace ID", value: (t) => t.trace_id },
+  { header: "Source", value: (t) => (t.platform ? "platform" : "agent") },
+  { header: "Agent / Workflow", value: (t) => (t.platform ? t.workflow_name || t.agent_id : t.agent_id) },
+  { header: "Platform", value: (t) => t.platform || "" },
+  { header: "Status", value: (t) => t.status },
+  { header: "Latency (ms)", value: (t) => t.latency_ms },
+  { header: "Tokens", value: (t) => t.total_tokens },
+  { header: "Cost (USD)", value: (t) => t.cost_usd },
+  { header: "Risk", value: (t) => t.risk_score },
+  { header: "Severity", value: (t) => t.risk_severity },
+  { header: "Started", value: (t) => new Date(t.started_at).toISOString() },
+];
 
 interface TraceListProps {
   traces: TraceListItem[];
@@ -72,18 +89,21 @@ export function TraceList({ traces, showSource = false, controls = false, pageSi
       {controls && (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search by trace, agent, or workflow…" className="max-w-xs" />
-          <Select
-            value={status}
-            onValueChange={setStatus}
-            size="sm"
-            ariaLabel="Filter by status"
-            className="min-w-[120px]"
-            options={[
-              { value: "", label: "All statuses" },
-              { value: "ok", label: "OK" },
-              { value: "error", label: "Error" },
-            ]}
-          />
+          <div className="flex items-center gap-2">
+            <Select
+              value={status}
+              onValueChange={setStatus}
+              size="sm"
+              ariaLabel="Filter by status"
+              className="min-w-[120px]"
+              options={[
+                { value: "", label: "All statuses" },
+                { value: "ok", label: "OK" },
+                { value: "error", label: "Error" },
+              ]}
+            />
+            <ExportButton rows={tc.filtered} columns={TRACE_EXPORT_COLUMNS} filename="traces" sheetName="Traces" />
+          </div>
         </div>
       )}
       {noMatch ? (
@@ -132,7 +152,7 @@ export function TraceList({ traces, showSource = false, controls = false, pageSi
               ))}
             </tbody>
           </table>
-          {controls && <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="trace" />}
+          {controls && <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="trace" />}
         </>
       )}
     </Card>

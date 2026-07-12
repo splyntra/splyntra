@@ -14,6 +14,7 @@ import { SourceBadge } from "@/components/ui/SourceBadge";
 import { Select } from "@/components/ui/Select";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { CatalogIcon } from "@/lib/catalog-icons";
 import { usePlatform, platformMeta, successRate } from "@/lib/platforms";
 import { useSpanMetrics, useMetrics } from "@/lib/hooks";
@@ -142,7 +143,20 @@ export default function PlatformDashboardPage() {
       <SectionCard
         title="Workflows"
         icon={Boxes}
-        action={workflows.length > 0 ? <SearchInput value={wtc.q} onChange={wtc.setQ} placeholder="Search workflows…" className="max-w-[220px]" /> : undefined}
+        action={workflows.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <SearchInput value={wtc.q} onChange={wtc.setQ} placeholder="Search workflows…" className="max-w-[200px]" />
+            <ExportButton rows={wtc.filtered} filename={`${platform}-workflows`} sheetName="Workflows" columns={[
+              { header: "Workflow", value: (w: WorkflowItem) => w.workflow_name || w.workflow_id },
+              { header: "Version", value: (w: WorkflowItem) => w.version || "" },
+              { header: "Runs", value: (w: WorkflowItem) => w.run_count },
+              { header: "Success %", value: (w: WorkflowItem) => successRate(w.run_count, w.error_count) },
+              { header: "Avg Runtime (ms)", value: (w: WorkflowItem) => Math.round(w.avg_latency_ms) },
+              { header: "Tokens", value: (w: WorkflowItem) => w.total_tokens },
+              { header: "Cost (USD)", value: (w: WorkflowItem) => w.total_cost },
+            ]} />
+          </div>
+        ) : undefined}
       >
         {workflows.length === 0 ? (
           <EmptyState icon={Boxes} title="No workflows yet">Runs will group by workflow as they arrive.</EmptyState>
@@ -185,7 +199,7 @@ export default function PlatformDashboardPage() {
               })}
             </tbody>
           </table>
-          <TablePagination page={wtc.page} pageCount={wtc.pageCount} pageSize={wtc.pageSize} total={wtc.total} onPage={wtc.setPage} unit="workflow" />
+          <TablePagination page={wtc.page} pageCount={wtc.pageCount} pageSize={wtc.pageSize} total={wtc.total} onPage={wtc.setPage} onPageSize={wtc.setPageSize} unit="workflow" />
           </>
         )}
       </SectionCard>
@@ -195,7 +209,18 @@ export default function PlatformDashboardPage() {
         <SectionCard
           title="Node analytics"
           icon={Activity}
-          action={nodes.length > 0 ? <SearchInput value={ntc.q} onChange={ntc.setQ} placeholder="Search nodes…" className="max-w-[180px]" /> : undefined}
+          action={nodes.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <SearchInput value={ntc.q} onChange={ntc.setQ} placeholder="Search nodes…" className="max-w-[160px]" />
+              <ExportButton rows={ntc.filtered} filename={`${platform}-nodes`} sheetName="Nodes" columns={[
+                { header: "Node", value: (n) => n.key || "" },
+                { header: "Calls", value: (n) => n.count },
+                { header: "Failures", value: (n) => n.error_count },
+                { header: "Avg (ms)", value: (n) => Math.round(n.avg_ms) },
+                { header: "p95 (ms)", value: (n) => Math.round(n.p95_ms) },
+              ]} />
+            </div>
+          ) : undefined}
         >
           {nodes.length === 0 ? (
             <EmptyState icon={Activity} title="No node data">Per-node timing appears when runs include a node breakdown.</EmptyState>
@@ -225,7 +250,7 @@ export default function PlatformDashboardPage() {
                 ))}
               </tbody>
             </table>
-            <TablePagination page={ntc.page} pageCount={ntc.pageCount} pageSize={ntc.pageSize} total={ntc.total} onPage={ntc.setPage} unit="node" />
+            <TablePagination page={ntc.page} pageCount={ntc.pageCount} pageSize={ntc.pageSize} total={ntc.total} onPage={ntc.setPage} onPageSize={ntc.setPageSize} unit="node" />
             </>
           )}
         </SectionCard>

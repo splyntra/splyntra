@@ -86,6 +86,33 @@ def tool_call_precision(item: Item) -> float:
     return hits / len(actual)
 
 
+def groundedness(item: Item) -> float:
+    """Deterministic hallucination proxy: fraction of the actual answer's tokens
+    that are supported by the provided ``context`` (retrieved documents / source
+    material). Low groundedness ⇒ likely hallucination. Stopwords are ignored so
+    filler words don't inflate the score.
+
+    Requires an item ``context`` field (string, or list joined to a string). With
+    no context, returns 1.0 (nothing to contradict — use the LLM ``faithfulness``
+    judge from scorers-pro for context-free faithfulness).
+    """
+    ctx_raw = item.get("context")
+    if isinstance(ctx_raw, (list, tuple)):
+        ctx_raw = " ".join(_s(c) for c in ctx_raw)
+    context = _tokens(ctx_raw) - _STOPWORDS
+    actual = _tokens(item.get("actual")) - _STOPWORDS
+    if not context or not actual:
+        return 1.0
+    return len(actual & context) / len(actual)
+
+
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "be", "to",
+    "of", "in", "on", "for", "with", "as", "at", "by", "it", "this", "that", "i",
+    "you", "he", "she", "they", "we", "not", "no", "yes", "do", "does", "did",
+}
+
+
 def latency(item: Item) -> float:
     """1.0 if under the threshold (default 5000ms), linearly degrading to 0 at 4x."""
     ms = float(item.get("latency_ms") or 0)
@@ -112,6 +139,7 @@ SCORERS: Dict[str, Callable[[Item], float]] = {
     "tool_call_precision": tool_call_precision,
     "precision_token_overlap": precision_token_overlap,
     "recall_token_overlap": recall_token_overlap,
+    "groundedness": groundedness,
     "latency": latency,
     "cost": cost,
 }
@@ -156,3 +184,22 @@ def _load_plugin_scorers() -> None:
 
 
 _load_plugin_scorers()
+
+
+# Scorers that need an item `context` field (RAG groundedness / faithfulness).
+CONTEXT_SCORERS = {"groundedness", "faithfulness"}
+
+
+def scorer_catalog() -> list:
+    """Metadata for every available scorer (deterministic + loaded plugins), for
+    the dashboard's scorer picker: name, one-line description, kind, and whether
+    the scorer needs a `context` field."""
+    def _desc(fn) -> str:
+        return ((fn.__doc__ or "").strip().split("\n")[0]) or ""
+
+    out = []
+    for name, fn in sorted(SCORERS.items()):
+        out.append({"name": name, "description": _desc(fn), "kind": "deterministic", "needs_context": name in CONTEXT_SCORERS})
+    for name, fn in sorted(PLUGIN_SCORERS.items()):
+        out.append({"name": name, "description": _desc(fn) or "Commercial LLM-based scorer", "kind": "plugin", "needs_context": name in CONTEXT_SCORERS})
+    return out

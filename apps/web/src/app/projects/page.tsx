@@ -10,6 +10,7 @@ import {
   FolderKanban, Plus, Check, X, AlertTriangle, Pencil, Archive, ArchiveRestore, Trash2,
 } from "lucide-react";
 import { PageHeader, Card, EmptyState } from "@/components/ui/primitives";
+import { useTableControls, TablePagination } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
@@ -49,6 +50,7 @@ export default function ProjectsPage() {
   const all: ProjectItem[] = data?.projects || [];
   const active = all.filter((p) => !p.archived_at);
   const archived = all.filter((p) => p.archived_at);
+  const atc = useTableControls(active, { pageSize: 10 });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["projects"] });
 
   async function onCreate(e: React.FormEvent) {
@@ -285,7 +287,10 @@ export default function ProjectsPage() {
             Create your first project above to start scoping traces, costs, and alerts.
           </EmptyState>
         ) : (
-          <table className="w-full text-sm">{HEAD}<tbody className="divide-y divide-gray-100 dark:divide-gray-800">{active.map((p) => renderRow(p, false))}</tbody></table>
+          <>
+            <table className="w-full text-sm">{HEAD}<tbody className="divide-y divide-gray-100 dark:divide-gray-800">{atc.view.map((p) => renderRow(p, false))}</tbody></table>
+            <TablePagination page={atc.page} pageCount={atc.pageCount} pageSize={atc.pageSize} total={atc.total} onPage={atc.setPage} onPageSize={atc.setPageSize} unit="project" />
+          </>
         )}
       </Card>
 

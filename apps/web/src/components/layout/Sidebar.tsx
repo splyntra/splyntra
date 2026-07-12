@@ -70,6 +70,7 @@ const navItems: NavItem[] = [
   { href: "/platforms", label: "Agent Platforms", icon: Workflow, section: "platforms" },
   { href: "/mcp", label: "MCP Servers", icon: Server, section: "mcp" },
   { href: "/traces", label: "Traces", icon: Activity, section: "observability" },
+  { href: "/logs", label: "Logs", icon: ScrollText, section: "observability" },
   { href: "/metrics", label: "Metrics", icon: LineChart, section: "observability" },
   { href: "/tools", label: "Tools & Retrieval", icon: Wrench, section: "observability" },
   { href: "/evaluations", label: "Evaluation", icon: ClipboardCheck, section: "observability" },

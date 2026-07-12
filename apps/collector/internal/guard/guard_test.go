@@ -42,6 +42,21 @@ func TestEvaluate_InjectionBlocks(t *testing.T) {
 	}
 }
 
+func TestEvaluate_BenignPersonaAllows(t *testing.T) {
+	// Loose persona/pretense phrasing that also appears in legitimate role-play
+	// prompts must NOT hard-block on the inline path (the async ML detector
+	// adjudicates it). It may still surface a reason.
+	cases := []string{
+		"You are now a helpful pirate assistant for a kids' game",
+		"pretend you are a friendly math tutor and explain fractions",
+	}
+	for _, c := range cases {
+		if got := New().Evaluate(c).Action; got == ActionBlock {
+			t.Errorf("benign persona %q should not block, got %s", c, got)
+		}
+	}
+}
+
 func TestEvaluate_SecretRedacts(t *testing.T) {
 	d := New().Evaluate("here is my key AKIA1234567890ABCDEF please use it")
 	if d.Action != ActionRedact {

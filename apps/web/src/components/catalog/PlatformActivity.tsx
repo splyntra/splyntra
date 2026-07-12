@@ -9,6 +9,7 @@ import { Card, EmptyState } from "@/components/ui/primitives";
 import { Badge } from "@/components/ui/Badge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { CatalogIcon } from "@/lib/catalog-icons";
 import { usePlatforms, platformMeta, connectablePlatforms, successRate } from "@/lib/platforms";
 import { Workflow, ChevronRight } from "lucide-react";
@@ -46,7 +47,20 @@ export function PlatformActivity() {
           <Workflow className="h-4 w-4 text-gray-500" />
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Platform activity</h2>
         </div>
-        {rows.length > 0 && <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search platforms…" className="max-w-[220px]" />}
+        {rows.length > 0 && (
+          <div className="flex items-center gap-2">
+            <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search platforms…" className="max-w-[200px]" />
+            <ExportButton rows={tc.filtered} filename="platforms" sheetName="Platforms" columns={[
+              { header: "Platform", value: (r) => platformMeta(r.platform).name },
+              { header: "Workflows", value: (r) => r.workflow_count },
+              { header: "Runs", value: (r) => r.run_count },
+              { header: "Success %", value: (r) => successRate(r.run_count, r.error_count) },
+              { header: "Avg Runtime (ms)", value: (r) => Math.round(r.avg_latency_ms) },
+              { header: "Cost (USD)", value: (r) => r.total_cost },
+              { header: "Last Activity", value: (r) => (r.last_seen_at ? new Date(r.last_seen_at).toISOString() : "") },
+            ]} />
+          </div>
+        )}
       </div>
       {isLoading ? (
         <div className="h-32 animate-pulse bg-gray-50 dark:bg-gray-900/40" />
@@ -102,7 +116,7 @@ export function PlatformActivity() {
             })}
           </tbody>
         </table>
-        <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="platform" />
+        <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="platform" />
         </>
       )}
     </Card>

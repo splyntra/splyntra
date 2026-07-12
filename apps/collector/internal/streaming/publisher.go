@@ -41,6 +41,22 @@ type TraceEvent struct {
 	IngestedAt  time.Time   `json:"ingested_at"`
 }
 
+// LogEvent is a single structured log record (OTLP LogRecord), trace-correlated
+// via TraceID/SpanID when emitted inside an active span. Body is redacted before
+// storage, like span input/output.
+type LogEvent struct {
+	Timestamp   time.Time         `json:"timestamp"`
+	OrgID       string            `json:"org_id"`
+	ProjectID   string            `json:"project_id"`
+	Environment string            `json:"environment"`
+	AgentID     string            `json:"agent_id,omitempty"`
+	TraceID     string            `json:"trace_id,omitempty"`
+	SpanID      string            `json:"span_id,omitempty"`
+	Severity    string            `json:"severity"` // TRACE|DEBUG|INFO|WARN|ERROR|FATAL
+	Body        string            `json:"body"`
+	Attributes  map[string]string `json:"attributes,omitempty"`
+}
+
 // SpanEvent is the message for a single span.
 type SpanEvent struct {
 	TraceID          string            `json:"trace_id"`

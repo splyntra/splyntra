@@ -15,6 +15,7 @@ package extension
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -125,3 +126,35 @@ func RegisterTokenValidator(v TokenValidator) { tokenValidator = v }
 
 // Validator returns the active token validator (deny-all/fall-through in OSS).
 func Validator() TokenValidator { return tokenValidator }
+
+// ── Audit-ledger seam (tamper-evident activity log) ─────────────────────────
+// The tamper-evident ledger is owned by the commercial governance module (the
+// hash-chain + serialized append live there). This register-a-provider seam lets
+// ANY module — or a future open-core caller — record an audit entry without
+// importing the governance package or reimplementing the chain, keeping each
+// pillar decoupled (identity writes credential/agent events without depending on
+// governance). Like QuotaGuard/TokenValidator it registers a provider (no routes),
+// so it cannot collide with module routes. The OSS default is a no-op.
+
+// LedgerAppender records a tamper-evident audit entry. metadata is optional JSON.
+type LedgerAppender interface {
+	Append(ctx context.Context, orgID, projectID, actor, action, resource, traceID string, metadata json.RawMessage) error
+}
+
+type noopAppender struct{}
+
+func (noopAppender) Append(context.Context, string, string, string, string, string, string, json.RawMessage) error {
+	return nil
+}
+
+var ledger LedgerAppender = noopAppender{}
+
+// RegisterLedger installs the tamper-evident audit ledger (commercial governance).
+func RegisterLedger(a LedgerAppender) {
+	if a != nil {
+		ledger = a
+	}
+}
+
+// Ledger returns the active audit ledger (no-op in OSS). Never nil.
+func Ledger() LedgerAppender { return ledger }

@@ -10,7 +10,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from splyntra.exporters import make_otlp_exporter
+from splyntra.exporters import make_otlp_exporter, make_otlp_log_exporter
 from splyntra.redaction import RedactingSpanProcessor
 
 
@@ -74,6 +74,10 @@ class Splyntra:
         self._provider = provider
         self._tracer = trace.get_tracer("splyntra", __import__("splyntra").__version__)
 
+        # Structured-logs pipeline: OTLP LogRecords → /v1/logs, trace-correlated,
+        # so `splyntra.log.info(...)` works after one-line init.
+        self._log_provider = self._setup_logs(resource)
+
         # Configure the inline guardrail (used by the instrumentors' pre-flight hook).
         from splyntra import guard as _guard
 
@@ -84,13 +88,37 @@ class Splyntra:
 
             _instrument(*instrument)
 
+    def _setup_logs(self, resource):
+        """Set up the OTLP logs pipeline. Best-effort: if the OTel logs SDK isn't
+        available, `splyntra.log` stays a no-op rather than breaking init."""
+        try:
+            from opentelemetry._logs import set_logger_provider
+            from opentelemetry.sdk._logs import LoggerProvider
+            from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
+            log_provider = LoggerProvider(resource=resource)
+            log_provider.add_log_record_processor(
+                BatchLogRecordProcessor(
+                    make_otlp_log_exporter(self.endpoint, self._api_key, self.project)
+                )
+            )
+            set_logger_provider(log_provider)
+            from splyntra import log as _log
+
+            _log._configure(redact=self.redact_by_default)
+            return log_provider
+        except Exception:  # noqa: BLE001 — logs are optional; never break tracing init
+            return None
+
     @property
     def tracer(self) -> trace.Tracer:
         return self._tracer
 
     def shutdown(self) -> None:
-        """Flush and shut down the tracing pipeline."""
+        """Flush and shut down the tracing + logs pipelines."""
         self._provider.shutdown()
+        if getattr(self, "_log_provider", None) is not None:
+            self._log_provider.shutdown()
 
     def __enter__(self) -> "Splyntra":
         return self

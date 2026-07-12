@@ -2,9 +2,12 @@
 import { trace, Tracer, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { LoggerProvider, BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import { logs } from "@opentelemetry/api-logs";
 import { Resource } from "@opentelemetry/resources";
-import { makeOtlpExporter } from "./exporters";
+import { makeOtlpExporter, makeOtlpLogExporter } from "./exporters";
 import { RedactingSpanProcessor } from "./redaction";
+import { configureLogs } from "./log";
 import { instrument as instrumentFrameworks } from "./instrumentors";
 import { configureGuard, GuardMode } from "./guard";
 
@@ -28,6 +31,7 @@ export interface SplyntraConfig {
 
 export class Splyntra {
   private provider: NodeTracerProvider;
+  private logProvider?: LoggerProvider;
   private _tracer: Tracer;
 
   constructor(config: SplyntraConfig) {
@@ -74,6 +78,16 @@ export class Splyntra {
 
     this._tracer = trace.getTracer("splyntra", "0.1.0");
 
+    // Structured-logs pipeline: OTLP LogRecords → /v1/logs, trace-correlated
+    // (the sdk-logs LoggerProvider attaches the active span context), so
+    // `log.info(...)` works after one-line init.
+    this.logProvider = new LoggerProvider({ resource });
+    this.logProvider.addLogRecordProcessor(
+      new BatchLogRecordProcessor(makeOtlpLogExporter(endpoint, apiKey, project))
+    );
+    logs.setGlobalLoggerProvider(this.logProvider);
+    configureLogs(redactByDefault);
+
     // Configure the inline guardrail used by the instrumentors' pre-flight hook.
     configureGuard({ mode: guard, failOpen: guardFailOpen, endpoint, apiKey });
 
@@ -95,6 +109,9 @@ export class Splyntra {
 
   async shutdown(): Promise<void> {
     await this.provider.shutdown();
+    if (this.logProvider) {
+      await this.logProvider.shutdown();
+    }
   }
 }
 
@@ -360,9 +377,14 @@ export function wrapLLM<T extends (...args: any[]) => any>(fn: T, model: string,
   );
 }
 
-export { instrument, instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP } from "./instrumentors";
+export { instrument, instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP, instrumentLlamaIndex, instrumentChroma } from "./instrumentors";
 export { RedactingSpanProcessor, redactString } from "./redaction";
 export { SplyntraBlocked, enforceGuard, configureGuard } from "./guard";
 export type { GuardMode } from "./guard";
-export { makeOtlpExporter } from "./exporters";
+export { makeOtlpExporter, makeOtlpLogExporter } from "./exporters";
+export { log } from "./log";
+export { authorize, logAction } from "./governance";
+export type { AuthorizeDecision } from "./governance";
+export { pushDataset, runEval } from "./eval";
+export type { DatasetItem, RunResult, RunSummary } from "./eval";
 export { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";

@@ -6,8 +6,10 @@ import { instrumentLangGraph } from "./langgraph";
 import { instrumentCrewAI } from "./crewai";
 import { instrumentOpenAIAgents } from "./openai-agents";
 import { instrumentMCP } from "./mcp";
+import { instrumentLlamaIndex } from "./llamaindex";
+import { instrumentChroma } from "./chroma";
 
-export { instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP };
+export { instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP, instrumentLlamaIndex, instrumentChroma };
 
 type Instrumentor = () => boolean;
 
@@ -20,6 +22,8 @@ const REGISTRY: Record<string, Instrumentor> = {
   "openai-agents": instrumentOpenAIAgents,
   openai_agents: instrumentOpenAIAgents,
   mcp: instrumentMCP,
+  llamaindex: instrumentLlamaIndex,
+  chroma: instrumentChroma,
 };
 
 /**

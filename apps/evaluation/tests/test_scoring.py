@@ -13,6 +13,7 @@ from scorers import (  # noqa: E402
     tool_call_precision,
     precision_token_overlap,
     recall_token_overlap,
+    groundedness,
     latency,
     cost,
 )
@@ -28,6 +29,19 @@ def test_rule_based_substring_and_regex():
     assert rule_based({"actual": "the refund was issued", "expected": "refund"}) == 1.0
     assert rule_based({"actual": "order 12345", "expected": "/[0-9]{5}/"}) == 1.0
     assert rule_based({"actual": "nope", "expected": "refund"}) == 0.0
+
+
+def test_groundedness_hallucination_proxy():
+    # Fully supported by context → grounded.
+    grounded = groundedness({"actual": "Paris is the capital", "context": "Paris is the capital of France"})
+    assert grounded == 1.0
+    # A fabricated claim not in the context → low groundedness (hallucination).
+    hallucinated = groundedness({"actual": "Berlin Tokyo Sydney", "context": "Paris is the capital of France"})
+    assert hallucinated < 0.5
+    # No context → nothing to contradict → 1.0 (use the LLM faithfulness judge instead).
+    assert groundedness({"actual": "anything", "context": ""}) == 1.0
+    # Context as a list is joined.
+    assert groundedness({"actual": "cats purr", "context": ["cats purr", "dogs bark"]}) == 1.0
 
 
 def test_tool_call_success():

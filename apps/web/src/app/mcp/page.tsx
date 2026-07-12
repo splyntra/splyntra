@@ -13,7 +13,7 @@ export default function McpPage() {
       <PageHeader
         icon={Server}
         title="MCP Servers"
-        subtitle="Every MCP server is captured by the one MCP instrumentor. Monitor latency, failed calls, and permission violations per server."
+        subtitle="Every MCP server is captured by the one MCP instrumentor. Monitor latency, failed calls, and flagged calls per server."
       />
 
       <McpServerMetrics />

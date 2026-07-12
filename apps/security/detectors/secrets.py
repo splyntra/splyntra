@@ -7,6 +7,7 @@ We reimplement the regex patterns in Python for the detector sidecar.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -92,11 +93,30 @@ SECRET_PATTERNS: list[SecretPattern] = [
 ]
 
 
-class SecretDetector:
-    """Pattern + entropy-based secret detector.
+# Generic patterns match any high-length token, so they need a Shannon-entropy
+# gate to avoid flagging low-entropy placeholders (e.g. api_key=YOUR_KEY_HERE or
+# a repetitive value). Vendor-specific patterns (AWS/GitHub/Stripe/…) are precise
+# formats and stay unconditional.
+_ENTROPY_GATED = {"generic-api-key", "database-url"}
+_MIN_ENTROPY = 3.0  # bits/char; random base64/hex secrets are ~4-5, filler <3
 
-    Uses gitleaks-style regex patterns for known secret formats.
-    Ships as 'reliable' - high precision, GA quality.
+
+def _shannon_entropy(s: str) -> float:
+    """Shannon entropy (bits per character) of a string."""
+    if not s:
+        return 0.0
+    from collections import Counter
+
+    n = len(s)
+    return -sum((c / n) * math.log2(c / n) for c in Counter(s).values())
+
+
+class SecretDetector:
+    """Pattern + entropy-gated secret detector.
+
+    Uses gitleaks-style regex patterns for known secret formats; the generic
+    catch-all patterns additionally require sufficient Shannon entropy so
+    placeholders don't false-positive. High precision, GA quality.
     """
 
     def __init__(self):
@@ -108,12 +128,19 @@ class SecretDetector:
 
         for pattern in self.patterns:
             for match in pattern.regex.finditer(text):
+                confidence = 0.95  # precise vendor pattern → high confidence
+                if pattern.id in _ENTROPY_GATED:
+                    entropy = _shannon_entropy(match.group(0))
+                    if entropy < _MIN_ENTROPY:
+                        continue  # low-entropy → placeholder/false positive, skip
+                    # Scale confidence with entropy above the floor.
+                    confidence = round(min(0.95, 0.6 + (entropy - _MIN_ENTROPY) * 0.15), 2)
                 detections.append(
                     Detection(
                         detector="secrets",
                         category=pattern.id,
                         severity=pattern.severity,
-                        confidence=0.95,  # Pattern-based = high confidence
+                        confidence=confidence,
                         description=pattern.description,
                         start=match.start(),
                         end=match.end(),

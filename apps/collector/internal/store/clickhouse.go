@@ -150,6 +150,7 @@ type ClickHouseStore struct {
 	mu         sync.Mutex
 	spanBuf    []*streaming.SpanEvent
 	traceBuf   []*streaming.TraceEvent
+	logBuf     []*streaming.LogEvent
 	flushTimer *time.Ticker
 	done       chan struct{}
 }
@@ -183,6 +184,7 @@ func NewClickHouseStore(dsn string, logger *zap.Logger) (*ClickHouseStore, error
 		logger:     logger,
 		spanBuf:    make([]*streaming.SpanEvent, 0, batchSize),
 		traceBuf:   make([]*streaming.TraceEvent, 0, batchSize),
+		logBuf:     make([]*streaming.LogEvent, 0, batchSize),
 		flushTimer: time.NewTicker(flushInterval),
 		done:       make(chan struct{}),
 	}
@@ -207,8 +209,10 @@ func (s *ClickHouseStore) Flush() {
 	s.mu.Lock()
 	spans := s.spanBuf
 	traces := s.traceBuf
+	logs := s.logBuf
 	s.spanBuf = make([]*streaming.SpanEvent, 0, batchSize)
 	s.traceBuf = make([]*streaming.TraceEvent, 0, batchSize)
+	s.logBuf = make([]*streaming.LogEvent, 0, batchSize)
 	s.mu.Unlock()
 
 	if len(spans) > 0 {
@@ -216,6 +220,9 @@ func (s *ClickHouseStore) Flush() {
 	}
 	if len(traces) > 0 {
 		s.flushTraces(traces)
+	}
+	if len(logs) > 0 {
+		s.flushLogs(logs)
 	}
 }
 
@@ -264,6 +271,139 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen]
+}
+
+func (s *ClickHouseStore) flushLogs(logs []*streaming.LogEvent) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO logs (
+			timestamp, org_id, project_id, environment, agent_id,
+			trace_id, span_id, severity, body, attributes
+		)`)
+	if err != nil {
+		s.logger.Error("prepare log batch failed", zap.Error(err))
+		return
+	}
+	for _, l := range logs {
+		sev := l.Severity
+		if sev == "" {
+			sev = "INFO"
+		}
+		if err := batch.Append(
+			l.Timestamp, l.OrgID, l.ProjectID, l.Environment, l.AgentID,
+			l.TraceID, l.SpanID, sev, truncate(l.Body, 8192), l.Attributes,
+		); err != nil {
+			s.logger.Error("append log to batch failed", zap.Error(err))
+		}
+	}
+	if err := batch.Send(); err != nil {
+		s.logger.Error("send log batch failed", zap.Error(err), zap.Int("count", len(logs)))
+	} else {
+		s.logger.Debug("flushed logs", zap.Int("count", len(logs)))
+	}
+}
+
+// InsertLog buffers a structured log record for batch insertion.
+func (s *ClickHouseStore) InsertLog(ctx context.Context, log *streaming.LogEvent) error {
+	s.mu.Lock()
+	s.logBuf = append(s.logBuf, log)
+	shouldFlush := len(s.logBuf) >= batchSize
+	s.mu.Unlock()
+	if shouldFlush {
+		go s.Flush()
+	}
+	return nil
+}
+
+// LogRow is a stored structured log record for the dashboard logs view.
+type LogRow struct {
+	Timestamp  time.Time         `json:"timestamp"`
+	AgentID    string            `json:"agent_id"`
+	TraceID    string            `json:"trace_id"`
+	SpanID     string            `json:"span_id"`
+	Severity   string            `json:"severity"`
+	Body       string            `json:"body"`
+	Attributes map[string]string `json:"attributes"`
+}
+
+// LogFilter carries list filters + pagination for QueryLogs. MinSeverity uses the
+// severity Enum8 ordinal (>=), so "WARN" returns WARN/ERROR/FATAL.
+type LogFilter struct {
+	Limit       int
+	Offset      int
+	AgentID     string
+	TraceID     string
+	MinSeverity string // "", TRACE|DEBUG|INFO|WARN|ERROR|FATAL
+	Search      string // substring match on body
+	SinceSec    int
+	Source      string // "", "agent", "platform"
+	Platform    string
+}
+
+// QueryLogs returns a page of structured logs matching the filter + total count.
+// Source/platform scope is applied via the traces table (logs carry trace_id).
+func (s *ClickHouseStore) QueryLogs(ctx context.Context, orgID, projectID string, f LogFilter) ([]LogRow, uint64, error) {
+	where := "org_id = ? AND project_id = ?"
+	args := []any{orgID, projectID}
+	if f.AgentID != "" {
+		where += " AND agent_id = ?"
+		args = append(args, f.AgentID)
+	}
+	if f.TraceID != "" {
+		where += " AND trace_id = ?"
+		args = append(args, f.TraceID)
+	}
+	if f.MinSeverity != "" {
+		where += " AND severity >= ?"
+		args = append(args, f.MinSeverity)
+	}
+	if f.Search != "" {
+		where += " AND positionCaseInsensitive(body, ?) > 0"
+		args = append(args, f.Search)
+	}
+	if f.SinceSec > 0 {
+		where += " AND timestamp >= now() - toIntervalSecond(?)"
+		args = append(args, f.SinceSec)
+	}
+	if clause, subArgs := traceScopeSubquery(orgID, projectID, f.Source, f.Platform); clause != "" {
+		where += clause
+		args = append(args, subArgs...)
+	}
+
+	var total uint64
+	if err := s.conn.QueryRow(ctx, "SELECT count() FROM logs WHERE "+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count logs: %w", err)
+	}
+
+	limit := f.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	offset := f.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	pageArgs := append(append([]any{}, args...), limit, offset)
+	rows, err := s.conn.Query(ctx, `
+		SELECT timestamp, agent_id, trace_id, span_id, severity, body, attributes
+		FROM logs WHERE `+where+`
+		ORDER BY timestamp DESC
+		LIMIT ? OFFSET ?`, pageArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query logs: %w", err)
+	}
+	defer rows.Close()
+	var out []LogRow
+	for rows.Next() {
+		var l LogRow
+		if err := rows.Scan(&l.Timestamp, &l.AgentID, &l.TraceID, &l.SpanID, &l.Severity, &l.Body, &l.Attributes); err != nil {
+			return nil, 0, fmt.Errorf("scan log: %w", err)
+		}
+		out = append(out, l)
+	}
+	return out, total, rows.Err()
 }
 
 func (s *ClickHouseStore) flushTraces(traces []*streaming.TraceEvent) {
@@ -643,6 +783,101 @@ func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID s
 	return dets, total, rows.Err()
 }
 
+// IncidentSummary is the aggregate rollup shown above the incidents feed:
+// totals plus severity, detector, and top-offending-agent distributions over the
+// same filter window. It answers "what's the shape of my risk" before the reader
+// scrolls the raw feed.
+type IncidentSummary struct {
+	Total      uint64           `json:"total"`
+	BySeverity map[string]uint64 `json:"by_severity"`
+	ByDetector map[string]uint64 `json:"by_detector"`
+	TopAgents  []AgentCount     `json:"top_agents"`
+}
+
+// AgentCount is one row of the top-offending-agents breakdown.
+type AgentCount struct {
+	AgentID string `json:"agent_id"`
+	Count   uint64 `json:"count"`
+}
+
+// QueryIncidentSummary computes the aggregate distributions for the Security
+// dashboard's summary strip, honoring the same filters as QueryIncidents (minus
+// pagination) so the rollup matches the feed the reader is looking at.
+func (s *ClickHouseStore) QueryIncidentSummary(ctx context.Context, orgID, projectID string, f IncidentFilter) (*IncidentSummary, error) {
+	where := "org_id = ? AND project_id = ?"
+	args := []any{orgID, projectID}
+	if f.AgentID != "" {
+		where += " AND agent_id = ?"
+		args = append(args, f.AgentID)
+	}
+	if f.Detector != "" {
+		where += " AND detector = ?"
+		args = append(args, f.Detector)
+	}
+	if f.MinSeverity != "" {
+		where += " AND severity >= ?"
+		args = append(args, f.MinSeverity)
+	}
+	if f.SinceSec > 0 {
+		where += " AND detected_at >= now() - toIntervalSecond(?)"
+		args = append(args, f.SinceSec)
+	}
+	if clause, subArgs := traceScopeSubquery(orgID, projectID, f.Source, f.Platform); clause != "" {
+		where += clause
+		args = append(args, subArgs...)
+	}
+
+	sum := &IncidentSummary{BySeverity: map[string]uint64{}, ByDetector: map[string]uint64{}, TopAgents: []AgentCount{}}
+
+	// Severity distribution (Enum8 rendered as its name).
+	sevRows, err := s.conn.Query(ctx, "SELECT toString(severity), count() FROM detections FINAL WHERE "+where+" GROUP BY severity", args...)
+	if err != nil {
+		return nil, fmt.Errorf("summary by severity: %w", err)
+	}
+	for sevRows.Next() {
+		var name string
+		var n uint64
+		if err := sevRows.Scan(&name, &n); err != nil {
+			sevRows.Close()
+			return nil, fmt.Errorf("scan severity summary: %w", err)
+		}
+		sum.BySeverity[name] = n
+		sum.Total += n
+	}
+	sevRows.Close()
+
+	detRows, err := s.conn.Query(ctx, "SELECT detector, count() FROM detections FINAL WHERE "+where+" GROUP BY detector", args...)
+	if err != nil {
+		return nil, fmt.Errorf("summary by detector: %w", err)
+	}
+	for detRows.Next() {
+		var name string
+		var n uint64
+		if err := detRows.Scan(&name, &n); err != nil {
+			detRows.Close()
+			return nil, fmt.Errorf("scan detector summary: %w", err)
+		}
+		sum.ByDetector[name] = n
+	}
+	detRows.Close()
+
+	agRows, err := s.conn.Query(ctx, "SELECT agent_id, count() AS c FROM detections FINAL WHERE "+where+" AND agent_id != '' GROUP BY agent_id ORDER BY c DESC LIMIT 5", args...)
+	if err != nil {
+		return nil, fmt.Errorf("summary top agents: %w", err)
+	}
+	for agRows.Next() {
+		var ac AgentCount
+		if err := agRows.Scan(&ac.AgentID, &ac.Count); err != nil {
+			agRows.Close()
+			return nil, fmt.Errorf("scan agent summary: %w", err)
+		}
+		sum.TopAgents = append(sum.TopAgents, ac)
+	}
+	agRows.Close()
+
+	return sum, agRows.Err()
+}
+
 func (s *ClickHouseStore) QueryDetections(ctx context.Context, traceID, orgID, projectID string) ([]DetectionRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT
@@ -779,7 +1014,7 @@ func (s *ClickHouseStore) DeleteProjectData(ctx context.Context, orgID, projectI
 	if s == nil || s.conn == nil {
 		return nil
 	}
-	tables := []string{"traces", "spans", "detections", "cost_daily_mv"}
+	tables := []string{"traces", "spans", "detections", "cost_daily_mv", "logs"}
 	var errs []error
 	for _, t := range tables {
 		// #nosec G201 — table name is from a fixed internal allowlist above.
@@ -1431,6 +1666,27 @@ func (s *ClickHouseStore) MonthToDateCostUSD(ctx context.Context, orgID, project
 	return cost, nil
 }
 
+// TrailingDailyBurnUSD returns the average daily spend over the trailing
+// windowDays whole days, EXCLUDING the partial current day so a spike/lull today
+// doesn't skew the run-rate. Used for a smoother month-end forecast than the
+// naive spent/dayOfMonth pace (which over-reacts early in the month).
+func (s *ClickHouseStore) TrailingDailyBurnUSD(ctx context.Context, orgID, projectID string, windowDays int) (float64, error) {
+	if windowDays <= 0 {
+		windowDays = 7
+	}
+	where := "org_id = ? AND started_at >= toStartOfDay(now()) - toIntervalDay(?) AND started_at < toStartOfDay(now())"
+	args := []any{orgID, windowDays}
+	if projectID != "" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
+	var total float64
+	if err := s.conn.QueryRow(ctx, "SELECT sum(cost_usd) FROM traces FINAL WHERE "+where, args...).Scan(&total); err != nil {
+		return 0, fmt.Errorf("query trailing burn: %w", err)
+	}
+	return total / float64(windowDays), nil
+}
+
 // ─── Detection Result Storage ───────────────────────────────────────────────
 
 // InsertDetectionResult writes all detections from a result to ClickHouse.
@@ -1461,16 +1717,29 @@ func (s *ClickHouseStore) InsertDetectionResult(ctx context.Context, result *str
 
 // UpdateTraceRisk updates the risk score and detection count on a trace.
 // Uses ClickHouse lightweight ALTER TABLE ... UPDATE (async mutation).
+//
+// A single trace can be scored by more than one detection result (one per span
+// processed asynchronously). Risk must accumulate, not last-write-wins: the
+// score is raised to the max seen so far and the severity is re-derived from
+// that max in SQL so the two never disagree. The passed-in severity thresholds
+// mirror riskSeverityFromScore in the streaming consumer.
 func (s *ClickHouseStore) UpdateTraceRisk(ctx context.Context, traceID, orgID, projectID string, riskScore int, severity string, detectionCount int) error {
 	err := s.conn.Exec(ctx, `
 		ALTER TABLE traces UPDATE
-			risk_score = ?,
-			risk_severity = ?,
+			risk_score = greatest(risk_score, ?),
+			risk_severity = multiIf(
+				greatest(risk_score, ?) >= 75, 'CRITICAL',
+				greatest(risk_score, ?) >= 50, 'HIGH',
+				greatest(risk_score, ?) >= 25, 'MEDIUM',
+				greatest(risk_score, ?) > 0,  'LOW',
+				'NONE'),
 			detection_count = detection_count + ?
 		WHERE trace_id = ? AND org_id = ? AND project_id = ?`,
-		uint8(riskScore), severity, uint16(detectionCount),
+		uint8(riskScore), uint8(riskScore), uint8(riskScore), uint8(riskScore), uint8(riskScore),
+		uint16(detectionCount),
 		traceID, orgID, projectID,
 	)
+	_ = severity // severity is now derived in SQL from the accumulated max
 	if err != nil {
 		s.logger.Error("update trace risk failed", zap.Error(err))
 		return fmt.Errorf("update trace risk: %w", err)

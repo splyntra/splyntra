@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 "use client";
-// Per-MCP-server monitoring (latency / failed calls / permission violations).
+// Per-MCP-server monitoring (latency / failed calls / flagged calls).
 // Wired to /v1/metrics/spans (grouped by mcp.server.name) in W8; until data
 // exists it shows an empty state.
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { Server, ChevronRight } from "lucide-react";
 import { Card, EmptyState } from "@/components/ui/primitives";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { useSpanMetrics } from "@/lib/hooks";
 
 export function McpServerMetrics() {
@@ -47,7 +48,16 @@ export function McpServerMetrics() {
           <Server className="h-4 w-4 text-gray-500" />
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Servers</h2>
         </div>
-        <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search servers…" className="max-w-[220px]" />
+        <div className="flex items-center gap-2">
+          <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search servers…" className="max-w-[200px]" />
+          <ExportButton rows={tc.filtered} filename="mcp-servers" sheetName="MCP Servers" columns={[
+            { header: "Server", value: (r) => r.key || "unknown" },
+            { header: "Calls", value: (r) => r.count },
+            { header: "Failed", value: (r) => r.error_count },
+            { header: "Flagged", value: (r) => r.flagged || 0 },
+            { header: "p95 (ms)", value: (r) => Math.round(r.p95_ms) },
+          ]} />
+        </div>
       </div>
       {tc.total === 0 ? (
         <EmptyState icon={Server} title="No servers match your search">Try a different term.</EmptyState>
@@ -82,7 +92,7 @@ export function McpServerMetrics() {
           })}
         </tbody>
       </table>
-      <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="server" />
+      <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="server" />
       </>
       )}
     </Card>

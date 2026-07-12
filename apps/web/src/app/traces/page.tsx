@@ -3,15 +3,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTraces } from "@/lib/hooks";
-import { TraceList } from "@/components/trace/TraceList";
+import { TraceList, TRACE_EXPORT_COLUMNS } from "@/components/trace/TraceList";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { PageHeader } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/Select";
 import { SourceFilter } from "@/components/ui/SourceFilter";
+import { ServerPagination } from "@/components/ui/DataTable";
 import { SourceScope } from "@/lib/api";
-import { Activity, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Activity, X } from "lucide-react";
 
-const PAGE = 25;
 const TIME_RANGES = [
   { label: "All time", value: 0 },
   { label: "Last hour", value: 3600 },
@@ -27,6 +28,7 @@ export default function TracesPage() {
   const [agentId, setAgentId] = useState("");
   const [source, setSource] = useState<"" | SourceScope>("");
   const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
 
   // Drill-down from the agents page arrives via ?agent_id=… (read client-side to
   // avoid a Suspense boundary for the whole route).
@@ -42,7 +44,7 @@ export default function TracesPage() {
 
   const opts = useMemo(
     () => ({
-      limit: PAGE,
+      limit: pageSize,
       offset,
       status: status || undefined,
       severity: severity || undefined,
@@ -50,14 +52,12 @@ export default function TracesPage() {
       agentId: agentId || undefined,
       source: source || undefined,
     }),
-    [offset, status, severity, since, agentId, source]
+    [offset, pageSize, status, severity, since, agentId, source]
   );
 
   const { data, isLoading, error } = useTraces(opts);
   const traces = data?.traces || [];
   const total = data?.total ?? 0;
-  const pageStart = total === 0 ? 0 : offset + 1;
-  const pageEnd = Math.min(offset + PAGE, total);
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -113,6 +113,7 @@ export default function TracesPage() {
           options={TIME_RANGES.map((t) => ({ value: String(t.value), label: t.label }))}
         />
         {!agentId && <SourceFilter value={source} onChange={setSource} />}
+        <ExportButton rows={traces} columns={TRACE_EXPORT_COLUMNS} filename="traces" sheetName="Traces" />
         <span className="ml-auto text-xs text-gray-500 tabular-nums">
           {total.toLocaleString()} trace{total === 1 ? "" : "s"}
         </span>
@@ -120,30 +121,7 @@ export default function TracesPage() {
 
       {isLoading ? <TableSkeleton rows={5} cols={8} /> : <TraceList traces={traces} showSource />}
 
-      {/* Pagination */}
-      {total > 0 && (offset > 0 || pageEnd < total) && (
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <span className="text-gray-500 tabular-nums">
-            Showing {pageStart.toLocaleString()}–{pageEnd.toLocaleString()} of {total.toLocaleString()}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - PAGE))}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" /> Prev
-            </button>
-            <button
-              disabled={pageEnd >= total}
-              onClick={() => setOffset(offset + PAGE)}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Next <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+      <ServerPagination total={total} limit={pageSize} offset={offset} onOffset={setOffset} onLimit={setPageSize} unit="trace" />
     </div>
   );
 }

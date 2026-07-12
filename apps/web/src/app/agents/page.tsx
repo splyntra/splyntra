@@ -11,6 +11,7 @@ import { PageHeader, StatCard, Card, EmptyState } from "@/components/ui/primitiv
 import { Select } from "@/components/ui/Select";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
+import { ExportButton } from "@/components/ui/ExportButton";
 
 const WINDOWS = [
   { label: "All time", value: 0 },
@@ -96,6 +97,18 @@ export default function AgentsPage() {
       {hasRealData && (
         <div className="mb-3 flex items-center justify-between gap-3">
           <SearchInput value={tc.q} onChange={tc.setQ} placeholder="Search agents…" className="max-w-xs" />
+          <ExportButton rows={tc.filtered} filename="agents" sheetName="Agents" columns={[
+            { header: "Agent", value: (a: AgentItem) => a.name || a.agent_id },
+            { header: "Framework", value: (a: AgentItem) => a.framework || "" },
+            { header: "Traces", value: (a: AgentItem) => a.trace_count },
+            { header: "Errors", value: (a: AgentItem) => a.error_count },
+            { header: "Avg Latency (ms)", value: (a: AgentItem) => Math.round(a.avg_latency_ms) },
+            { header: "P95 Latency (ms)", value: (a: AgentItem) => Math.round(a.p95_latency_ms) },
+            { header: "Cost (USD)", value: (a: AgentItem) => a.total_cost },
+            { header: "Detections", value: (a: AgentItem) => a.detection_count },
+            { header: "Avg Risk", value: (a: AgentItem) => Math.round(a.avg_risk || 0) },
+            { header: "Last Seen", value: (a: AgentItem) => new Date(a.last_seen_at).toISOString() },
+          ]} />
         </div>
       )}
       <Card className="overflow-hidden">
@@ -196,7 +209,7 @@ export default function AgentsPage() {
               })}
             </tbody>
           </table>
-          <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} unit="agent" />
+          <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="agent" />
           </>
         )}
       </Card>

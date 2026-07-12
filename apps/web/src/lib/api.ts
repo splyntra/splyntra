@@ -163,6 +163,47 @@ export async function fetchTrace(traceId: string): Promise<TraceDetailResponse> 
   return apiGet<TraceDetailResponse>(withProject(`/v1/traces/${encodeURIComponent(traceId)}`));
 }
 
+// ─── Structured logs (Layer 1 Observability) ─────────────────────────────────
+export interface LogListItem {
+  timestamp: string;
+  agent_id: string;
+  trace_id: string;
+  span_id: string;
+  severity: string; // TRACE|DEBUG|INFO|WARN|ERROR|FATAL
+  body: string;
+  attributes: Record<string, string>;
+}
+export interface LogListResponse {
+  logs: LogListItem[];
+  total: number;
+  limit?: number;
+  offset?: number;
+}
+export interface LogQueryOpts {
+  limit?: number;
+  offset?: number;
+  agentId?: string;
+  traceId?: string;
+  severity?: string; // min-severity
+  search?: string;
+  since?: number;
+  source?: SourceScope;
+  platform?: string;
+}
+export async function fetchLogs(opts: LogQueryOpts = {}): Promise<LogListResponse> {
+  const p = new URLSearchParams();
+  p.set("limit", String(opts.limit ?? 50));
+  if (opts.offset) p.set("offset", String(opts.offset));
+  if (opts.agentId) p.set("agent_id", opts.agentId);
+  if (opts.traceId) p.set("trace_id", opts.traceId);
+  if (opts.severity) p.set("severity", opts.severity);
+  if (opts.search) p.set("search", opts.search);
+  if (opts.since) p.set("since", String(opts.since));
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
+  return apiGet<LogListResponse>(withProject(`/v1/logs?${p.toString()}`));
+}
+
 // ─── Security incidents feed ─────────────────────────────────────────────────
 export interface IncidentQueryOpts {
   limit?: number;
@@ -191,6 +232,25 @@ export async function fetchIncidents(opts: IncidentQueryOpts = {}): Promise<Inci
   if (opts.source) p.set("source", opts.source);
   if (opts.platform) p.set("platform", opts.platform);
   return apiGet<IncidentListResponse>(withProject(`/v1/security/incidents?${p.toString()}`));
+}
+
+// Aggregate rollup shown above the incidents feed (severity/detector/top-agent
+// distributions over the same filter window).
+export interface IncidentSummary {
+  total: number;
+  by_severity: Record<string, number>;
+  by_detector: Record<string, number>;
+  top_agents: { agent_id: string; count: number }[];
+}
+export async function fetchIncidentSummary(opts: IncidentQueryOpts = {}): Promise<IncidentSummary> {
+  const p = new URLSearchParams();
+  if (opts.agentId) p.set("agent_id", opts.agentId);
+  if (opts.detector) p.set("detector", opts.detector);
+  if (opts.severity) p.set("severity", opts.severity);
+  if (opts.since) p.set("since", String(opts.since));
+  if (opts.source) p.set("source", opts.source);
+  if (opts.platform) p.set("platform", opts.platform);
+  return apiGet<IncidentSummary>(withProject(`/v1/security/summary?${p.toString()}`));
 }
 
 function getApiKey(): string {
@@ -430,6 +490,9 @@ export interface EvalDataset {
 export interface EvalRun {
   id: string;
   dataset_id: string;
+  version?: number;
+  agent_id?: string | null;
+  model?: string | null;
   score: number;
   item_count: number;
   passed: boolean;
@@ -438,8 +501,25 @@ export interface EvalRun {
   created_at: string;
 }
 
+export interface LeaderboardRow {
+  agent_id: string;
+  model: string;
+  runs: number;
+  best_score: number;
+  latest_score: number;
+  pass_rate: number;
+  last_run_at: string;
+}
+export async function fetchEvalLeaderboard(datasetId?: string): Promise<{ leaderboard: LeaderboardRow[] }> {
+  return evalGet(`/v1/evaluations/leaderboard${datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : ""}`);
+}
+
 async function evalGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${EVAL_BASE}${path}`, {
+  // Scope to the active project (mirrors withProject for the collector) so the
+  // dashboard's project switcher applies to evaluation data too. The evaluation
+  // service honors ?project_id= within the authenticated org, exactly like the
+  // collector's effectiveProject.
+  const res = await fetch(`${EVAL_BASE}${withProject(path)}`, {
     headers: { Authorization: `Bearer ${getApiKey()}`, "Content-Type": "application/json" },
   });
   if (!res.ok) throw new Error(`Eval request failed: ${res.status}`);
@@ -468,6 +548,99 @@ export interface EvalRunDetail {
 }
 export async function fetchEvalRun(runId: string): Promise<EvalRunDetail> {
   return evalGet(`/v1/evaluations/${encodeURIComponent(runId)}`);
+}
+
+// Eval writes go through the /api/eval proxy (which enforces role ≥ member for
+// non-GET) and are project-scoped, exactly like evalGet.
+async function evalSend<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${EVAL_BASE}${withProject(path)}`, {
+    method,
+    headers: { Authorization: `Bearer ${getApiKey()}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.text().catch(() => "")) || `Eval request failed: ${res.status}`);
+  return res.json().catch(() => ({} as T));
+}
+
+// ─── Scorers catalog (for the Run-evaluation scorer picker) ───────────────────
+export interface Scorer {
+  name: string;
+  description: string;
+  kind: "deterministic" | "plugin";
+  needs_context: boolean;
+}
+export async function fetchScorers(): Promise<{ scorers: Scorer[] }> {
+  return evalGet(`/v1/scorers`);
+}
+
+// ─── Dataset authoring + detail ───────────────────────────────────────────────
+export interface DatasetItemRow {
+  input: string;
+  expected_output?: string;
+  expected_tool_calls?: string[];
+  context?: string;
+}
+export interface DatasetVersion {
+  version: number;
+  item_count: number;
+  object_key: string;
+  created_at: string;
+}
+export interface DatasetInfo {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  created_at: string;
+}
+export interface DatasetDetail {
+  dataset: DatasetInfo;
+  versions: DatasetVersion[];
+  baseline: { run_id: string; score: number } | null;
+  items: DatasetItemRow[];
+}
+export async function fetchDataset(id: string): Promise<DatasetDetail> {
+  return evalGet(`/v1/datasets/${encodeURIComponent(id)}`);
+}
+export async function createDataset(input: { name: string; description?: string; items: DatasetItemRow[] }): Promise<{ dataset_id: string; slug: string; version: number; item_count: number }> {
+  return evalSend(`/v1/datasets`, "POST", input);
+}
+
+// ─── Run an evaluation from the UI ────────────────────────────────────────────
+export interface RunResultInput {
+  input: string;
+  actual: string;
+  expected?: string;
+  tool_calls?: string[];
+  context?: string;
+  latency_ms?: number;
+  cost_usd?: number;
+}
+export interface RunEvalResult {
+  run_id: string;
+  version: number;
+  score: number;
+  per_scorer: Record<string, number>;
+  baseline: number | null;
+  regression: boolean;
+  passed: boolean;
+  matched_dataset_items: number;
+  item_count: number;
+}
+export async function runEvaluation(input: {
+  dataset_id: string;
+  scorers: string[];
+  results: RunResultInput[];
+  set_baseline?: boolean;
+  gate?: boolean;
+  version?: number;
+  agent_id?: string;
+  model?: string;
+}): Promise<RunEvalResult> {
+  return evalSend(`/v1/evaluations/run`, "POST", input);
+}
+export async function setRunBaseline(runId: string): Promise<void> {
+  await evalSend(`/v1/evaluations/${encodeURIComponent(runId)}/baseline`, "POST");
 }
 
 export async function apiSend(path: string, method: string, body?: unknown): Promise<any> {

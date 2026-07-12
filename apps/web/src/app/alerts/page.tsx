@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader, Card, EmptyState, SeverityBadge } from "@/components/ui/primitives";
+import { useTableControls, TablePagination } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 
@@ -64,6 +65,7 @@ export default function AlertsPage() {
 
   const alerts: AlertItem[] = data?.alerts || [];
   const events: AlertEventItem[] = data?.events || [];
+  const etc = useTableControls(events, { pageSize: 10 });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["alerts"] });
 
@@ -560,7 +562,7 @@ export default function AlertsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {events.map((ev) => (
+                {etc.view.map((ev) => (
                   <tr key={ev.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-900/50">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
@@ -596,6 +598,7 @@ export default function AlertsPage() {
               </tbody>
             </table>
           )}
+          <TablePagination page={etc.page} pageCount={etc.pageCount} pageSize={etc.pageSize} total={etc.total} onPage={etc.setPage} onPageSize={etc.setPageSize} unit="event" />
         </Card>
       </div>
     </div>

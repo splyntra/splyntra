@@ -142,12 +142,63 @@ The SDK also registers handlers on `SIGTERM` and `SIGINT` for automatic flush.
 
 ## Supported Frameworks
 
-| Framework    | `instrument` name | Span mapping                                |
-|--------------|-------------------|---------------------------------------------|
-| OpenAI SDK   | `openai`          | Chat completions → `llm_call` spans         |
-| LangGraph.js | `langgraph`       | Graph `invoke` → `agent` span               |
+| Framework      | `instrument` name | Span mapping                                     |
+|----------------|-------------------|--------------------------------------------------|
+| OpenAI SDK     | `openai`          | Chat completions → `llm_call` spans              |
+| Anthropic SDK  | `anthropic`       | Messages → `llm_call` spans                       |
+| Ollama         | `ollama`          | Generate/chat → `llm_call` spans                  |
+| LangGraph.js   | `langgraph`       | Graph `invoke` → `agent` span                     |
+| CrewAI.js      | `crewai`          | Crew/Task/Tool → `agent`/`step`/`tool_call`       |
+| OpenAI Agents  | `openai-agents`   | Agent runs → `agent`/`tool_call`                  |
+| MCP            | `mcp`             | `tools/call` → `tool_call` (server, tool, args)   |
+| LlamaIndex.TS  | `llamaindex`      | Query engine → `agent`; retriever → `retrieval`   |
+| Chroma         | `chroma`          | Collection query/get → `vector_search`            |
 
 Each instrumentor is a safe no-op when its target package is not installed.
+
+## Structured Logs
+
+Emit trace-correlated logs to the same collector (auto-attached to the active span, redacted like spans):
+
+```ts
+import { log } from "@splyntra/sdk";
+
+log.info("charged card", { amount: 42 });
+log.warn("rate limited", { server: "stripe" });
+log.error("payment failed", { code: "card_declined" });
+```
+
+## Governance
+
+Ask the control plane whether an agent may act, and record consequential actions to the tamper-evident ledger (served by Splyntra Cloud):
+
+```ts
+import { authorize, logAction } from "@splyntra/sdk";
+
+const d = await authorize("payments.refund", { agentId: "support", context: { amount: 80 } });
+if (d.decision === "allow") { /* proceed */ }
+else if (d.decision === "needs_approval") { /* wait for a human */ }
+
+await logAction("payments.refund", { actor: "support", resource: "order_123", metadata: { amount: 80 } });
+```
+
+## Evaluation
+
+Push datasets and gate CI on regressions — programmatically or via the `splyntra` CLI (installed with this package):
+
+```ts
+import { pushDataset, runEval } from "@splyntra/sdk";
+
+await pushDataset("support-qa", [{ input: "capital of France?", expected_output: "Paris" }]);
+const res = await runEval(datasetId, [{ input: "capital of France?", actual: "Paris" }], { gate: true });
+if (!res.passed) process.exit(1); // regression
+```
+
+```bash
+# In CI (SPLYNTRA_API_KEY + SPLYNTRA_EVAL_ENDPOINT set):
+splyntra eval push --name support-qa --file dataset.jsonl
+splyntra eval run  --dataset <id> --file results.jsonl --scorers exact_match,groundedness --gate
+```
 
 ## License
 

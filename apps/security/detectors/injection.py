@@ -8,8 +8,15 @@ Clearly labeled as BETA - informs, does not enforce.
 
 from __future__ import annotations
 
+import os
 import re
 from .models import Detection
+
+# The prompt-injection classifier. In production it is exported to ONNX and baked
+# into the image at build (see scripts/bundle_injection_onnx.py) so detection runs
+# offline; SPLYNTRA_INJECTION_MODEL_DIR points at that baked directory.
+_INJECTION_MODEL_ID = "protectai/deberta-v3-base-prompt-injection-v2"
+_INJECTION_MODEL_DIR = os.getenv("SPLYNTRA_INJECTION_MODEL_DIR", "/app/models/injection-onnx")
 
 
 # Heuristic patterns for common injection techniques
@@ -61,7 +68,7 @@ INJECTION_PATTERNS = [
         "Known jailbreak persona/template",
     ),
     (
-        r"(?i)(without\s+(any\s+)?(restrictions?|filters?|guidelines?|censorship)|unfiltered|no\s+longer\s+bound\s+by)",
+        r"(?i)(without\s+(any\s+)?(restrictions?|filters?|guidelines?|censorship)|\bunfiltered\b|\bunrestricted\b|no\s+(restrictions?|filters?|limits?|rules?|guidelines?)|no\s+longer\s+bound\s+by)",
         "jailbreak",
         "Attempt to remove safety constraints",
     ),
@@ -125,26 +132,45 @@ class InjectionDetector:
         return detections
 
     def _ml_score(self, text: str) -> float | None:
-        """Score text using DeBERTa-based injection classifier (optional)."""
+        """Score text using the DeBERTa injection classifier.
+
+        Loads the locally-baked ONNX model first (offline, fast CPU inference),
+        falling back to a HuggingFace transformers pipeline (downloads on first
+        use), then to regex-only. Cached after the first call.
+        """
         if self._model is None:
-            try:
-                from transformers import pipeline
-
-                self._model = pipeline(
-                    "text-classification",
-                    model="protectai/deberta-v3-base-prompt-injection-v2",
-                    truncation=True,
-                    max_length=512,
-                )
-            except (ImportError, Exception):
-                # ML model not available - graceful degradation
-                self._model = False
-                return None
-
+            self._model = self._load_model()
         if self._model is False:
             return None
-
         result = self._model(text[:512])
         if result and result[0]["label"] == "INJECTION":
             return result[0]["score"]
         return None
+
+    @staticmethod
+    def _load_model():
+        """Return a text-classification pipeline, or False when unavailable."""
+        # 1) Locally-baked ONNX model (bundled at build → offline + fast).
+        if os.path.isdir(_INJECTION_MODEL_DIR) and os.listdir(_INJECTION_MODEL_DIR):
+            try:
+                from optimum.onnxruntime import ORTModelForSequenceClassification
+                from transformers import AutoTokenizer, pipeline
+
+                tokenizer = AutoTokenizer.from_pretrained(_INJECTION_MODEL_DIR)
+                # Prefer a quantized ONNX file when present (smaller/faster).
+                for fname in ("model_quantized.onnx", "model.onnx", None):
+                    try:
+                        kwargs = {"file_name": fname} if fname else {}
+                        model = ORTModelForSequenceClassification.from_pretrained(_INJECTION_MODEL_DIR, **kwargs)
+                        return pipeline("text-classification", model=model, tokenizer=tokenizer, truncation=True, max_length=512)
+                    except Exception:  # noqa: BLE001 — try the next candidate file
+                        continue
+            except Exception:  # noqa: BLE001 — ONNX runtime not available; fall through
+                pass
+        # 2) HuggingFace transformers pipeline (fetches the model on first use).
+        try:
+            from transformers import pipeline
+
+            return pipeline("text-classification", model=_INJECTION_MODEL_ID, truncation=True, max_length=512)
+        except Exception:  # noqa: BLE001 — graceful degradation to regex-only
+            return False

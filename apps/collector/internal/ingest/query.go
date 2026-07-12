@@ -93,6 +93,50 @@ func (q *QueryHandler) ListTraces(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"traces": traces, "total": total, "limit": limit, "offset": offset})
 }
 
+// ListLogs returns a page of structured agent logs (Layer 1 Observability), with
+// severity/agent/trace/text/source filters + pagination. Tenant-scoped.
+func (q *QueryHandler) ListLogs(w http.ResponseWriter, r *http.Request) {
+	if q.store == nil {
+		http.Error(w, `{"error":"storage not available"}`, http.StatusServiceUnavailable)
+		return
+	}
+	t := r.Context().Value(auth.TenantContextKey).(*auth.TenantInfo)
+	qp := r.URL.Query()
+
+	limit := 50
+	if n, err := strconv.Atoi(qp.Get("limit")); err == nil && n > 0 && n <= 200 {
+		limit = n
+	}
+	offset := 0
+	if n, err := strconv.Atoi(qp.Get("offset")); err == nil && n > 0 {
+		offset = n
+	}
+	since := 0
+	if n, err := strconv.Atoi(qp.Get("since")); err == nil && n > 0 {
+		since = n
+	}
+	sev := strings.ToUpper(qp.Get("severity"))
+	if !validSeverityLevels[sev] {
+		sev = ""
+	}
+	source, platform := parseSource(qp)
+	logs, total, err := q.store.QueryLogs(r.Context(), t.OrgID, effectiveProject(r, t), store.LogFilter{
+		Limit: limit, Offset: offset, AgentID: qp.Get("agent_id"), TraceID: qp.Get("trace_id"),
+		MinSeverity: sev, Search: qp.Get("search"), SinceSec: since, Source: source, Platform: platform,
+	})
+	if err != nil {
+		q.logger.Error("query logs failed", zap.Error(err))
+		http.Error(w, `{"error":"query failed"}`, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"logs": logs, "total": total, "limit": limit, "offset": offset})
+}
+
+// validSeverityLevels bounds the ?severity= min-severity filter for logs.
+var validSeverityLevels = map[string]bool{
+	"TRACE": true, "DEBUG": true, "INFO": true, "WARN": true, "ERROR": true, "FATAL": true,
+}
+
 // parseSource extracts source-domain scoping from query params, shared across the
 // fleet views (traces/metrics/incidents/costs). `source` is validated to "",
 // "agent", or "platform"; `platform` narrows to a specific platform id (which,
@@ -168,6 +212,42 @@ func (q *QueryHandler) ListSecurityIncidents(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, map[string]interface{}{"incidents": incidents, "total": total, "limit": limit, "offset": offset})
+}
+
+// SecuritySummary returns the aggregate rollup (severity / detector / top-agent
+// distributions) for the security dashboard's summary strip, honoring the same
+// detector/severity/time/source filters as the feed.
+func (q *QueryHandler) SecuritySummary(w http.ResponseWriter, r *http.Request) {
+	if q.store == nil {
+		http.Error(w, `{"error":"storage not available"}`, http.StatusServiceUnavailable)
+		return
+	}
+	tenantInfo := r.Context().Value(auth.TenantContextKey).(*auth.TenantInfo)
+	qp := r.URL.Query()
+
+	since := 0
+	if n, err := strconv.Atoi(qp.Get("since")); err == nil && n > 0 {
+		since = n
+	}
+	detector := qp.Get("detector")
+	if detector != "" && !validDetectors[detector] {
+		detector = ""
+	}
+	severity := strings.ToUpper(qp.Get("severity"))
+	if !validSeverities[severity] {
+		severity = ""
+	}
+	source, platform := parseSource(qp)
+	summary, err := q.store.QueryIncidentSummary(r.Context(), tenantInfo.OrgID, effectiveProject(r, tenantInfo), store.IncidentFilter{
+		AgentID: qp.Get("agent_id"), Detector: detector, MinSeverity: severity, SinceSec: since,
+		Source: source, Platform: platform,
+	})
+	if err != nil {
+		q.logger.Error("query incident summary failed", zap.Error(err))
+		http.Error(w, `{"error":"query failed"}`, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, summary)
 }
 
 // GetTrace returns a full trace with spans and detections.
@@ -1233,15 +1313,21 @@ func (q *QueryHandler) ListBudgets(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	day := now.Day()
 	daysInMonth := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	daysRemaining := daysInMonth - day // whole days left after today
 
 	views := make([]budgetView, 0, len(budgets))
 	for _, b := range budgets {
-		var spent float64
+		var spent, burn float64
 		if q.store != nil {
 			spent, _ = q.store.MonthToDateCostUSD(r.Context(), tenantInfo.OrgID, b.ProjectID)
+			// Trailing-7d average daily burn → smoother than the naive
+			// spent/dayOfMonth pace (which over-reacts in the first days of a month).
+			burn, _ = q.store.TrailingDailyBurnUSD(r.Context(), tenantInfo.OrgID, b.ProjectID, 7)
 		}
-		forecast := spent
-		if day > 0 {
+		// Forecast = spend so far + projected spend for the remaining days at the
+		// trailing burn rate. Fall back to the linear pace if there's no burn history.
+		forecast := spent + burn*float64(daysRemaining)
+		if burn <= 0 && day > 0 {
 			forecast = spent / float64(day) * float64(daysInMonth)
 		}
 		pct := 0.0
