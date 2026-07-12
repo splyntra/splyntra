@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/splyntra/splyntra/compare/dashboard-v1.4.0...dashboard-v1.5.0) (2026-07-12)
+
+
+### Features
+
+* fix overall codebase production grade ([e4894d2](https://github.com/splyntra/splyntra/commit/e4894d2b6ec9464d39e219f12d9bf2c874ac7180))
+
 ## [1.4.0](https://github.com/splyntra/splyntra/compare/dashboard-v1.3.0...dashboard-v1.4.0) (2026-07-05)
 
 

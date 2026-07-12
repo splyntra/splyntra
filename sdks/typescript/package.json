@@ -1,6 +1,6 @@
 {
   "name": "@splyntra/sdk",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Splyntra TypeScript SDK - Agent observability & security, built on OpenTelemetry",
   "repository": {
     "type": "git",
