@@ -2,6 +2,7 @@
   "name": "splyntra-production-agent",
   "version": "1.0.0",
   "private": true,
+  "author": "Anand Kumar (https://github.com/anandkr47)",
   "description": "Production-grade AI agent service instrumented with @splyntra/sdk — a deployable HTTP service with config validation, resilience, redaction, and graceful shutdown.",
   "type": "module",
   "engines": {

@@ -5,6 +5,7 @@
   "type": "module",
   "license": "Apache-2.0",
   "keywords": ["openclaw", "openclaw-plugin", "splyntra", "observability", "agentops"],
+  "author": "Anand Kumar (https://github.com/anandkr47)",
   "homepage": "https://github.com/splyntra/splyntra",
   "repository": {
     "type": "git",

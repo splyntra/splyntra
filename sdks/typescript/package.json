@@ -2,6 +2,7 @@
   "name": "@splyntra/sdk",
   "version": "1.4.0",
   "description": "Splyntra TypeScript SDK - Agent observability & security, built on OpenTelemetry",
+  "author": "Anand Kumar (https://github.com/anandkr47)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/splyntra/splyntra.git",

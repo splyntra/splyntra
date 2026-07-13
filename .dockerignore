@@ -1,0 +1,67 @@
+# Git
+.git
+.github
+.gitignore
+.gitattributes
+
+# IDE / Editor
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+.envrc
+
+# Documentation (not needed in image)
+docs/
+*.md
+!README.md
+LICENSE
+NOTICE
+CLA.md
+
+# Tests
+tests/
+**/tests/
+**/*_test.go
+**/test_*.py
+**/vitest.config.*
+**/vitest.setup.*
+
+# Build artifacts
+bin/
+**/dist/
+**/.next/
+**/.turbo/
+
+# Node
+**/node_modules/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker Compose (not needed inside images)
+docker-compose*.yml
+
+# Local data
+data/
+
+# CI / config
+.pre-commit-config.yaml
+.editorconfig
+.git-blame-ignore-revs
+release-please-config.json
+.release-please-manifest.json

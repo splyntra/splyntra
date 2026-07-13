@@ -39,6 +39,3 @@ Every source file carries an SPDX identifier matching the table above:
 CI (`.github/workflows/license-check.yml`) fails the build if a source file is
 missing a header or carries the wrong one for its directory.
 
-> This document describes structure, not legal advice. The AGPL/Apache split, the
-> Apache→AGPL relicensing of the server core, and the CLA should be confirmed with
-> counsel before publishing release tags.

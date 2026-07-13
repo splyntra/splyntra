@@ -38,6 +38,3 @@ repository, you agree to the following:
 
 How we record agreement (e.g. a CLA-assistant bot or a signed-off-by trailer) is
 described in `CONTRIBUTING.md`.
-
-> This is a template and not legal advice. Confirm the final CLA text with counsel
-> before enforcing it.

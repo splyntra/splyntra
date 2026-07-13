@@ -1,0 +1,6 @@
+# Commits to ignore in `git blame` (formatting-only changes)
+# Usage: git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Add commit hashes below when you run large-scale formatting (gofmt, ruff format, prettier).
+# Example:
+# abc1234deadbeef  # chore: run ruff format across all Python files

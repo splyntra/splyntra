@@ -1,0 +1,44 @@
+# CODEOWNERS — auto-assign reviewers for PRs
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default — catch-all
+* @splyntra/core
+
+# Go collector
+/apps/collector/ @splyntra/backend
+
+# Python services
+/apps/security/ @splyntra/security
+/apps/evaluation/ @splyntra/backend
+
+# SDKs
+/sdks/python/ @splyntra/sdk
+/sdks/typescript/ @splyntra/sdk
+
+# Dashboard
+/apps/web/ @splyntra/frontend
+
+# Infra / CI / Docker
+/docker-compose*.yml @splyntra/infra
+/deploy/ @splyntra/infra
+/.github/workflows/ @splyntra/infra
+/Taskfile.yml @splyntra/infra
+/Makefile @splyntra/infra
+
+# Migrations
+/migrations/ @splyntra/backend @splyntra/infra
+
+# Documentation
+/docs/ @splyntra/core
+/README.md @splyntra/core
+
+# Security-sensitive (require security team review)
+/SECURITY.md @splyntra/security
+/apps/collector/internal/auth/ @splyntra/security
+/apps/collector/internal/redact/ @splyntra/security
+/apps/web/src/lib/auth*.ts @splyntra/security
+
+# Extension / seam surface (changes may break splyntra-cloud)
+/apps/collector/extension/ @splyntra/core @splyntra/backend
+/apps/web/src/lib/slots.ts @splyntra/core @splyntra/frontend
+/apps/web/src/lib/collector-auth.ts @splyntra/core @splyntra/frontend
