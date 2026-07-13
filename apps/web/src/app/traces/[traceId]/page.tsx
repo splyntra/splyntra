@@ -108,8 +108,11 @@ export default function TraceDetailPage() {
   const traceId = params.traceId as string;
   const { data, isLoading, error } = useTrace(traceId);
 
-  const hasSpans = !!data && (data.spans?.length || 0) > 0;
-  const trace = hasSpans ? apiToTrace(traceId, data!) : null;
+  // A trace exists if the stored trace row is present OR it has spans. A trace
+  // with zero spans is still a real trace (summary only) — not "not found".
+  const hasTrace = !!data && (!!data.trace || (data.spans?.length || 0) > 0);
+  const noSpans = hasTrace && (data!.spans?.length || 0) === 0;
+  const trace = hasTrace ? apiToTrace(traceId, data!) : null;
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -126,7 +129,14 @@ export default function TraceDetailPage() {
       {isLoading ? (
         <div className="py-12 text-center text-gray-500">Loading trace…</div>
       ) : trace ? (
-        <TraceViewer trace={trace} />
+        <>
+          {noSpans && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+              This trace has no recorded spans yet — showing the trace summary only.
+            </div>
+          )}
+          <TraceViewer trace={trace} />
+        </>
       ) : (
         <EmptyState icon={FileSearch} title="Trace not found">
           {error ? "Could not reach the collector." : `No trace with id ${traceId} in this project.`}

@@ -42,7 +42,7 @@ const ALERT_TYPES: { value: AlertType; label: string; desc: string; icon: Lucide
 ];
 
 export default function AlertsPage() {
-  const { data, isLoading } = useAlerts();
+  const { data, isLoading, isError } = useAlerts();
   const { projectId } = useProject();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -145,6 +145,9 @@ export default function AlertsPage() {
     try {
       await updateAlert(a.id, { is_active: !a.is_active });
       refresh();
+    } catch {
+      toast.error(a.is_active ? "Couldn’t pause the alert." : "Couldn’t enable the alert.");
+      refresh(); // re-sync card state from the server (roll back the optimistic view)
     } finally {
       setTogglingId(null);
     }
@@ -457,6 +460,12 @@ export default function AlertsPage() {
 
         {isLoading ? (
           <Card className="p-8 text-center text-sm text-gray-500">Loading…</Card>
+        ) : isError ? (
+          <Card>
+            <EmptyState icon={AlertTriangle} title="Couldn’t load alert rules">
+              The collector is unavailable — check that it’s reachable, then retry.
+            </EmptyState>
+          </Card>
         ) : alerts.length === 0 ? (
           <Card>
             <EmptyState icon={Bell} title="No alert rules configured">

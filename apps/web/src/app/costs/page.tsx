@@ -174,7 +174,8 @@ export default function CostsPage() {
           <div className="p-8 text-center text-gray-500">No models match your search.</div>
         ) : (
           <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800 border-b">
               <tr>
                 <SortableTh label="Model" sortKey="model" sort={mtc.sort} onSort={mtc.toggleSort} />
@@ -222,6 +223,7 @@ export default function CostsPage() {
               </tr>
             </tfoot>
           </table>
+          </div>
           <TablePagination page={mtc.page} pageCount={mtc.pageCount} pageSize={mtc.pageSize} total={mtc.total} onPage={mtc.setPage} onPageSize={mtc.setPageSize} unit="model" />
           </>
         )}

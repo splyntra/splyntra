@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 "use client";
 
-import { useFormState } from "react-dom";
+import { useFormState, useFormStatus } from "react-dom";
 import { useEffect, useState } from "react";
 import { UserPlus, Copy, Check, AlertTriangle } from "lucide-react";
 import { inviteMemberAction } from "@/app/auth-actions";
@@ -57,10 +57,7 @@ export function InviteForm() {
           <span className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300">Role</span>
           <Select name="role" defaultValue="member" options={INVITE_ROLES} ariaLabel="Invite role" />
         </label>
-        <button className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100">
-          <UserPlus className="h-4 w-4" />
-          Create invite
-        </button>
+        <SubmitButton />
       </form>
 
       {state?.error ? (
@@ -89,5 +86,19 @@ export function InviteForm() {
         </div>
       ) : null}
     </Card>
+  );
+}
+
+// Disables during the pending server action to prevent a double-submit.
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      disabled={pending}
+      className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+    >
+      <UserPlus className="h-4 w-4" />
+      {pending ? "Creating…" : "Create invite"}
+    </button>
   );
 }

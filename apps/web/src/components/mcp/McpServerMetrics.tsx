@@ -4,7 +4,7 @@
 // Wired to /v1/metrics/spans (grouped by mcp.server.name) in W8; until data
 // exists it shows an empty state.
 import { useRouter } from "next/navigation";
-import { Server, ChevronRight } from "lucide-react";
+import { Server, ChevronRight, AlertTriangle } from "lucide-react";
 import { Card, EmptyState } from "@/components/ui/primitives";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
@@ -13,7 +13,7 @@ import { useSpanMetrics } from "@/lib/hooks";
 
 export function McpServerMetrics() {
   const router = useRouter();
-  const { data, isLoading } = useSpanMetrics({ group: "mcp_server" });
+  const { data, isLoading, isError } = useSpanMetrics({ group: "mcp_server" });
   const rows = data?.groups || [];
 
   const tc = useTableControls(rows, {
@@ -30,6 +30,15 @@ export function McpServerMetrics() {
   });
 
   if (isLoading) return <div className="h-32 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />;
+  if (isError) {
+    return (
+      <Card>
+        <EmptyState icon={AlertTriangle} title="Couldn’t load MCP activity">
+          The collector is unavailable — check that it’s reachable, then retry.
+        </EmptyState>
+      </Card>
+    );
+  }
   if (rows.length === 0) {
     return (
       <Card>

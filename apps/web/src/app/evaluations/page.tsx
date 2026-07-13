@@ -22,11 +22,11 @@ export default function EvaluationsPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [scopeDataset, setScopeDataset] = useState<string>("");
-  const { data: dsData, isLoading: dsLoading } = useDatasets();
-  const { data: runData } = useEvalRuns(scopeDataset || undefined);
-  const { data: lbData } = useEvalLeaderboard(scopeDataset || undefined);
+  const { data: dsData, isLoading: dsLoading, isError: dsError } = useDatasets();
+  const { data: runData, isError: runsError } = useEvalRuns(scopeDataset || undefined);
+  const { data: lbData, isError: lbError } = useEvalLeaderboard(scopeDataset || undefined);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
-  const { data: runDetail, isLoading: detailLoading } = useEvalRun(selectedRun);
+  const { data: runDetail, isLoading: detailLoading, isError: detailError } = useEvalRun(selectedRun);
 
   const [newDataset, setNewDataset] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
@@ -131,6 +131,10 @@ export default function EvaluationsPage() {
       <Card className="mb-6 overflow-hidden">
         {dsLoading ? (
           <div className="p-8 text-center text-gray-500">Loading…</div>
+        ) : dsError ? (
+          <EmptyState icon={AlertTriangle} title="Couldn’t load datasets">
+            The evaluation service is unavailable — check that the collector is reachable, then retry.
+          </EmptyState>
         ) : datasets.length === 0 ? (
           <EmptyState icon={Database} title="No datasets yet">
             A dataset is the ground truth your agent is scored against.
@@ -165,6 +169,11 @@ export default function EvaluationsPage() {
         <TablePagination page={dtc.page} pageCount={dtc.pageCount} pageSize={dtc.pageSize} total={dtc.total} onPage={dtc.setPage} onPageSize={dtc.setPageSize} unit="dataset" />
       </Card>
 
+      {lbError && (
+        <p className="mb-4 flex items-center gap-1.5 text-xs text-red-500">
+          <AlertTriangle className="h-3.5 w-3.5" /> Couldn’t load the leaderboard — check that the collector is reachable.
+        </p>
+      )}
       {leaderboard.length > 0 && (
         <>
           <div className="mb-3 flex items-center justify-between">
@@ -220,7 +229,11 @@ export default function EvaluationsPage() {
         )}
       </div>
       <Card className="overflow-hidden">
-        {runs.length === 0 ? (
+        {runsError ? (
+          <EmptyState icon={AlertTriangle} title="Couldn’t load runs">
+            The evaluation service is unavailable — check that the collector is reachable, then retry.
+          </EmptyState>
+        ) : runs.length === 0 ? (
           <EmptyState icon={ClipboardCheck} title="No runs yet">
             Run an evaluation from the UI, or wire <code className="text-xs">splyntra eval run --gate</code> into CI.
             <div className="mt-3"><button onClick={() => { setRunPreset(null); setRunOpen(true); }} disabled={datasets.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-gray-900"><Play className="h-4 w-4" /> Run evaluation</button></div>
@@ -327,6 +340,10 @@ export default function EvaluationsPage() {
             <div className="overflow-auto">
               {detailLoading ? (
                 <div className="p-8 text-center text-sm text-gray-500">Loading…</div>
+              ) : detailError ? (
+                <div className="flex items-center justify-center gap-1.5 p-8 text-center text-sm text-red-500">
+                  <AlertTriangle className="h-4 w-4" /> Couldn’t load this run’s results.
+                </div>
               ) : !runDetail || runDetail.items.length === 0 ? (
                 <div className="p-8 text-center text-sm text-gray-500">No per-item results recorded.</div>
               ) : (

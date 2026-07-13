@@ -38,6 +38,11 @@ import { Select } from "@/components/ui/Select";
 import { useProject } from "@/lib/project-context";
 import { features } from "@/lib/features";
 import { navSlotItems, slotWidgets, usePlanFeatures } from "@/lib/slots";
+// Dashboard version shown in the footer. Resolves to this package's version at
+// build time — in the composed cloud build compose.mjs stages the
+// @splyntra/dashboard package.json here, so this reflects the published npm
+// version; in the open build it's apps/web's own version.
+import { version as APP_VERSION } from "../../../package.json";
 
 // Icons available to slot-contributed nav items (referenced by name so the
 // slots module stays free of React/icon imports).
@@ -192,7 +197,7 @@ export function Sidebar() {
             Connected
           </span>
           <span className="text-gray-300 dark:text-gray-700">·</span>
-          <span>v0.3.0</span>
+          <span>v{APP_VERSION}</span>
         </div>
       </div>
     </aside>

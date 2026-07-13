@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAgents } from "@/lib/hooks";
 import { AgentItem } from "@/lib/api";
-import { Bot, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
+import { Bot, CheckCircle2, AlertCircle, ShieldAlert, AlertTriangle } from "lucide-react";
 import { PageHeader, StatCard, Card, EmptyState } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/Select";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -79,7 +79,7 @@ export default function AgentsPage() {
           </div>
         }
       />
-      {!hasRealData && !isLoading && (
+      {!hasRealData && !isLoading && !error && (
         <p className="-mt-2 mb-4 text-xs text-amber-600">
           No agent data yet — send traces with agent names to populate.
         </p>
@@ -114,6 +114,10 @@ export default function AgentsPage() {
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-500">Loading agents…</div>
+        ) : error ? (
+          <EmptyState icon={AlertTriangle} title="Couldn’t load agents">
+            The collector is unavailable — check that it’s reachable, then retry.
+          </EmptyState>
         ) : agents.length === 0 ? (
           <EmptyState icon={Bot} title="No agents found">
             Send traces to your collector to see agents here.
@@ -122,7 +126,8 @@ export default function AgentsPage() {
           <EmptyState icon={Bot} title="No agents match your search">Try a different term.</EmptyState>
         ) : (
           <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
               <tr>
                 <SortableTh label="Agent" sortKey="agent" sort={tc.sort} onSort={tc.toggleSort} />
@@ -149,7 +154,15 @@ export default function AgentsPage() {
                   <tr
                     key={agent.agent_id}
                     onClick={() => router.push(`/agents/${encodeURIComponent(agent.agent_id)}`)}
-                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/agents/${encodeURIComponent(agent.agent_id)}`);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    className="cursor-pointer outline-none hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-splyntra-400 dark:hover:bg-gray-800"
                   >
                     <td className="px-4 py-3 font-medium">
                       <span className="text-gray-900 group-hover:text-splyntra-600 dark:text-white">
@@ -209,6 +222,7 @@ export default function AgentsPage() {
               })}
             </tbody>
           </table>
+          </div>
           <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="agent" />
           </>
         )}

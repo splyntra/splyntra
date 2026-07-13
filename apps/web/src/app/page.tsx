@@ -461,7 +461,7 @@ export default function Home() {
           accent={kpi.errRate >= 5 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}
         />
         <StatCard label="p95 latency · 24h" value={`${fmtNum(kpi.p95)} ms`} icon={Gauge} />
-        <StatCard label="Spend · total" value={fmtUSD(kpi.spend)} icon={DollarSign} />
+        <StatCard label="Spend · all time" value={fmtUSD(kpi.spend)} icon={DollarSign} />
       </div>
 
       {/* Throughput + risk donut */}

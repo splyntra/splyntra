@@ -39,8 +39,10 @@ export default function PlatformDashboardPage() {
   const meta = platformMeta(platform);
   const [windowSec, setWindowSec] = useState(0);
 
-  const { data, isLoading } = usePlatform(platform, windowSec || undefined);
-  const overview = data?.overview || null;
+  const { data, isLoading, isError } = usePlatform(platform, windowSec || undefined);
+  // Treat an unknown platform (present but all-zero) the same as "no data".
+  const rawOverview = data?.overview || null;
+  const overview = rawOverview && rawOverview.run_count === 0 ? null : rawOverview;
   const workflows = data?.workflows || [];
 
   // Node analytics: spans within this platform's runs, grouped by node/span name.
@@ -104,6 +106,8 @@ export default function PlatformDashboardPage() {
       {/* Overview KPIs */}
       {isLoading && !overview ? (
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />)}</div>
+      ) : isError ? (
+        <Card className="mb-6"><EmptyState icon={AlertTriangle} title="Couldn’t load this platform">The collector is unavailable — check that it’s reachable, then retry.</EmptyState></Card>
       ) : !overview ? (
         <Card className="mb-6"><EmptyState icon={Workflow} title="No runs for this platform in the selected window">Connect it from the <Link href="/platforms/connect" className="text-splyntra-600 hover:underline">connect wizard</Link>, or widen the time range.</EmptyState></Card>
       ) : (
@@ -164,7 +168,8 @@ export default function PlatformDashboardPage() {
           <EmptyState icon={Boxes} title="No workflows match your search">Try a different term.</EmptyState>
         ) : (
           <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
               <tr>
                 <SortableTh label="Workflow" sortKey="workflow" sort={wtc.sort} onSort={wtc.toggleSort} className="px-5 py-2.5" />
@@ -199,6 +204,7 @@ export default function PlatformDashboardPage() {
               })}
             </tbody>
           </table>
+          </div>
           <TablePagination page={wtc.page} pageCount={wtc.pageCount} pageSize={wtc.pageSize} total={wtc.total} onPage={wtc.setPage} onPageSize={wtc.setPageSize} unit="workflow" />
           </>
         )}

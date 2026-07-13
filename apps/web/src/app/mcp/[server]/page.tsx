@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Server, ArrowLeft, Activity, AlertCircle, ShieldAlert, Clock, Wrench, CheckCircle2 } from "lucide-react";
+import { Server, ArrowLeft, Activity, AlertCircle, AlertTriangle, ShieldAlert, Clock, Wrench, CheckCircle2 } from "lucide-react";
 import { PageHeader, StatCard, Card, EmptyState } from "@/components/ui/primitives";
 import { SourceBadge } from "@/components/ui/SourceBadge";
 import { Select } from "@/components/ui/Select";
@@ -32,7 +32,7 @@ export default function McpServerDashboardPage() {
   const since = windowSec || undefined;
 
   // Server-level aggregate (one row) + per-tool breakdown within this server.
-  const { data: agg, isLoading } = useSpanMetrics({ group: "mcp_server", server, since });
+  const { data: agg, isLoading, isError } = useSpanMetrics({ group: "mcp_server", server, since });
   const summary = (agg?.groups || []).find((g) => (g.key || "unknown") === server) || null;
   const { data: toolsData } = useSpanMetrics({ group: "name", type: "tool_call", server, since });
   const tools = toolsData?.groups || [];
@@ -70,6 +70,8 @@ export default function McpServerDashboardPage() {
 
       {isLoading && !summary ? (
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />)}</div>
+      ) : isError ? (
+        <Card className="mb-6"><EmptyState icon={AlertTriangle} title="Couldn’t load this server">The collector is unavailable — check that it’s reachable, then retry.</EmptyState></Card>
       ) : !summary ? (
         <Card className="mb-6"><EmptyState icon={Server} title="No calls to this server in the selected window">Instrument your agent with <code className="font-mono">instrument=(&quot;mcp&quot;,)</code>, or widen the time range.</EmptyState></Card>
       ) : (

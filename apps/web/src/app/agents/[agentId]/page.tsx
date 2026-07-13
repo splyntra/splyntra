@@ -18,7 +18,7 @@ import { useTableControls, SortableTh, TablePagination } from "@/components/ui/D
 import { ExportButton } from "@/components/ui/ExportButton";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import {
-  Bot, ArrowLeft, Activity, AlertCircle, Clock, Coins, DollarSign,
+  Bot, ArrowLeft, Activity, AlertCircle, AlertTriangle, Clock, Coins, DollarSign,
   ShieldAlert, ShieldCheck, Lock, LineChart, ClipboardCheck, Settings, Sparkles, Boxes, Database, Bell, Plus,
 } from "lucide-react";
 
@@ -76,11 +76,11 @@ export default function AgentDashboardPage() {
   const { data: agentsData, isLoading: agentsLoading } = useAgents(since);
   const agent: AgentItem | undefined = useMemo(() => agentsData?.agents.find((a) => a.agent_id === agentId), [agentsData, agentId]);
 
-  const { data: tracesData, isLoading: tracesLoading } = useTraces({ agentId, since, limit: 50 });
+  const { data: tracesData, isLoading: tracesLoading, isError: tracesError } = useTraces({ agentId, since, limit: 50 });
   const traces = tracesData?.traces || [];
-  const { data: incidentsData, isLoading: incidentsLoading } = useSecurityIncidents({ agentId, since, limit: 100 });
+  const { data: incidentsData, isLoading: incidentsLoading, isError: incidentsError } = useSecurityIncidents({ agentId, since, limit: 100 });
   const incidents = useMemo(() => incidentsData?.incidents || [], [incidentsData]);
-  const { data: costsData, isLoading: costsLoading } = useCosts(agentId);
+  const { data: costsData, isLoading: costsLoading, isError: costsError } = useCosts(agentId);
   const models = useMemo(() => (costsData?.models || []).slice().sort((a, b) => b.total_cost - a.total_cost), [costsData]);
   const maxModelCost = models.reduce((m, r) => Math.max(m, r.total_cost), 0);
 
@@ -139,8 +139,8 @@ export default function AgentDashboardPage() {
       {tab === "overview" && (
         <div className="space-y-6">
           <div className="grid items-start gap-6 lg:grid-cols-2">
-            <SecurityCard incidents={incidents} loading={incidentsLoading} sevCounts={sevCounts} />
-            <CostCard agent={agent} models={models} maxModelCost={maxModelCost} loading={costsLoading} costPerTrace={costPerTrace} />
+            <SecurityCard incidents={incidents} loading={incidentsLoading} error={incidentsError} sevCounts={sevCounts} />
+            <CostCard agent={agent} models={models} maxModelCost={maxModelCost} loading={costsLoading} error={costsError} costPerTrace={costPerTrace} />
           </div>
           <Card className="p-5">
             <div className="mb-4 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-gray-500" /><h2 className="text-[13px] font-semibold uppercase tracking-wider text-gray-500">Governance</h2></div>
@@ -149,21 +149,39 @@ export default function AgentDashboardPage() {
         </div>
       )}
 
-      {tab === "traces" && (tracesLoading ? <TableSkeleton rows={8} cols={8} /> : <TraceList traces={traces} controls />)}
+      {tab === "traces" && (
+        tracesLoading ? (
+          <TableSkeleton rows={8} cols={8} />
+        ) : tracesError ? (
+          <Card><EmptyState icon={AlertTriangle} title="Couldn’t load traces">The collector is unavailable — check that it’s reachable, then retry.</EmptyState></Card>
+        ) : (
+          <div className="space-y-3">
+            {traces.length >= 50 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                <span>Showing the 50 most recent traces.</span>
+                <Link href={`/traces?agent_id=${encodeURIComponent(agentId)}`} className="font-medium underline underline-offset-2 hover:no-underline">View all traces for this agent →</Link>
+              </div>
+            )}
+            <TraceList traces={traces} controls />
+          </div>
+        )
+      )}
       {tab === "metrics" && <MetricsTab agentId={agentId} windowSec={windowSec} />}
       {tab === "evaluation" && <EvaluationTab agentId={agentId} />}
-      {tab === "costs" && <AgentCostsTab agent={agent} models={models} loading={costsLoading} costPerTrace={costPerTrace} />}
-      {tab === "security" && <SecurityCard incidents={incidents} loading={incidentsLoading} sevCounts={sevCounts} full />}
+      {tab === "costs" && <AgentCostsTab agent={agent} models={models} loading={costsLoading} error={costsError} costPerTrace={costPerTrace} />}
+      {tab === "security" && <SecurityCard incidents={incidents} loading={incidentsLoading} error={incidentsError} sevCounts={sevCounts} full />}
       {tab === "config" && <ConfigTab agentId={agentId} />}
     </div>
   );
 }
 
-function SecurityCard({ incidents, loading, sevCounts, full }: { incidents: DetectionItem[]; loading: boolean; sevCounts: Record<string, number>; full?: boolean }) {
+function SecurityCard({ incidents, loading, error, sevCounts, full }: { incidents: DetectionItem[]; loading: boolean; error?: boolean; sevCounts: Record<string, number>; full?: boolean }) {
   return (
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-gray-500" /><h2 className="text-[13px] font-semibold uppercase tracking-wider text-gray-500">Security</h2></div>
-      {loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" /> : incidents.length === 0 ? (
+      {loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" /> : error ? (
+        <EmptyState icon={AlertTriangle} title="Couldn’t load detections">The collector is unavailable — check that it’s reachable, then retry.</EmptyState>
+      ) : incidents.length === 0 ? (
         <EmptyState icon={ShieldCheck} title="No detections for this agent">Prompt-injection, secret, PII, and tool-guard detections appear here.</EmptyState>
       ) : (
         <>
@@ -197,7 +215,7 @@ function SecurityCard({ incidents, loading, sevCounts, full }: { incidents: Dete
   );
 }
 
-function CostCard({ agent, models, maxModelCost, loading, costPerTrace }: { agent?: AgentItem; models: CostModelItem[]; maxModelCost: number; loading: boolean; costPerTrace: number }) {
+function CostCard({ agent, models, maxModelCost, loading, error, costPerTrace }: { agent?: AgentItem; models: CostModelItem[]; maxModelCost: number; loading: boolean; error?: boolean; costPerTrace: number }) {
   return (
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-2"><DollarSign className="h-4 w-4 text-gray-500" /><h2 className="text-[13px] font-semibold uppercase tracking-wider text-gray-500">Cost by model</h2></div>
@@ -207,7 +225,9 @@ function CostCard({ agent, models, maxModelCost, loading, costPerTrace }: { agen
           <div><div className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">${costPerTrace.toFixed(4)}</div><div className="text-xs text-gray-500">per trace</div></div>
         </div>
       )}
-      {loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" /> : models.length === 0 ? (
+      {loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" /> : error ? (
+        <EmptyState icon={AlertTriangle} title="Couldn’t load cost data">The collector is unavailable — check that it’s reachable, then retry.</EmptyState>
+      ) : models.length === 0 ? (
         <EmptyState icon={Coins} title="No model cost recorded">LLM spans with a model + token counts produce a cost breakdown here.</EmptyState>
       ) : (
         <ul className="space-y-2.5">
@@ -224,7 +244,7 @@ function CostCard({ agent, models, maxModelCost, loading, costPerTrace }: { agen
 }
 
 // Full Costs tab: summary KPIs + a sortable/searchable/paginated model table.
-function AgentCostsTab({ agent, models, loading, costPerTrace }: { agent?: AgentItem; models: CostModelItem[]; loading: boolean; costPerTrace: number }) {
+function AgentCostsTab({ agent, models, loading, error, costPerTrace }: { agent?: AgentItem; models: CostModelItem[]; loading: boolean; error?: boolean; costPerTrace: number }) {
   const tc = useTableControls(models, {
     searchText: (m) => m.model,
     sortAccessors: {
@@ -239,6 +259,7 @@ function AgentCostsTab({ agent, models, loading, costPerTrace }: { agent?: Agent
     pageSize: 8,
   });
   if (loading) return <div className="h-64 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />;
+  if (error) return <Card><EmptyState icon={AlertTriangle} title="Couldn’t load cost data">The collector is unavailable — check that it’s reachable, then retry.</EmptyState></Card>;
   const totalCalls = models.reduce((s, m) => s + m.call_count, 0);
   return (
     <div className="space-y-6">

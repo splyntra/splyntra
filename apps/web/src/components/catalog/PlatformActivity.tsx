@@ -12,7 +12,7 @@ import { useTableControls, SortableTh, TablePagination } from "@/components/ui/D
 import { ExportButton } from "@/components/ui/ExportButton";
 import { CatalogIcon } from "@/lib/catalog-icons";
 import { usePlatforms, platformMeta, connectablePlatforms, successRate } from "@/lib/platforms";
-import { Workflow, ChevronRight } from "lucide-react";
+import { Workflow, ChevronRight, AlertTriangle } from "lucide-react";
 
 function fmtMs(ms: number): string {
   if (!ms) return "—";
@@ -21,7 +21,7 @@ function fmtMs(ms: number): string {
 
 export function PlatformActivity() {
   const router = useRouter();
-  const { data, isLoading } = usePlatforms();
+  const { data, isLoading, isError } = usePlatforms();
   const rows = data?.platforms || [];
   const connectable = connectablePlatforms();
 
@@ -64,6 +64,10 @@ export function PlatformActivity() {
       </div>
       {isLoading ? (
         <div className="h-32 animate-pulse bg-gray-50 dark:bg-gray-900/40" />
+      ) : isError ? (
+        <EmptyState icon={AlertTriangle} title="Couldn’t load platform activity">
+          The collector is unavailable — check that it’s reachable, then retry.
+        </EmptyState>
       ) : rows.length === 0 ? (
         <EmptyState icon={Workflow} title="No platform activity yet">
           Connect a platform below — its workflow runs will appear here, separate from your agents.

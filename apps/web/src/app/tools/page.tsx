@@ -20,7 +20,7 @@ const WINDOWS = [
   { label: "Last 30d", value: 2592000 },
 ];
 
-function MetricTable({ title, icon: Icon, rows, keyLabel, loading }: { title: string; icon: typeof Wrench; rows: SpanMetricGroup[]; keyLabel: string; loading: boolean }) {
+function MetricTable({ title, icon: Icon, rows, keyLabel, loading, error }: { title: string; icon: typeof Wrench; rows: SpanMetricGroup[]; keyLabel: string; loading: boolean; error?: boolean }) {
   const tc = useTableControls(rows, {
     searchText: (r) => r.key || "unknown",
     sortAccessors: {
@@ -57,13 +57,16 @@ function MetricTable({ title, icon: Icon, rows, keyLabel, loading }: { title: st
       </div>
       {loading ? (
         <div className="h-32 animate-pulse bg-gray-50 dark:bg-gray-900/40" />
+      ) : error ? (
+        <EmptyState icon={AlertTriangle} title={`Couldn’t load ${title.toLowerCase()}`}>The collector is unavailable — check that it’s reachable, then retry.</EmptyState>
       ) : rows.length === 0 ? (
         <EmptyState icon={Icon} title={`No ${title.toLowerCase()} yet`}>Instrument your agent to see these calls with latency, failures, and flagged (risky) calls.</EmptyState>
       ) : tc.total === 0 ? (
         <EmptyState icon={Icon} title="No matches">Try a different search term.</EmptyState>
       ) : (
         <>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
             <tr>
               <SortableTh label={keyLabel} sortKey="key" sort={tc.sort} onSort={tc.toggleSort} className="px-5 py-2.5" />
@@ -87,6 +90,7 @@ function MetricTable({ title, icon: Icon, rows, keyLabel, loading }: { title: st
             ))}
           </tbody>
         </table>
+        </div>
         <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="row" />
         </>
       )}
@@ -141,8 +145,8 @@ export default function ToolsPage() {
       </div>
 
       <div className="space-y-6">
-        <MetricTable title="Tools" icon={Wrench} rows={toolRows} keyLabel="Tool" loading={tools.isLoading} />
-        <MetricTable title="Retrieval & Vector search" icon={Database} rows={retrievalRows} keyLabel="Operation" loading={retrieval.isLoading || vector.isLoading} />
+        <MetricTable title="Tools" icon={Wrench} rows={toolRows} keyLabel="Tool" loading={tools.isLoading} error={tools.isError} />
+        <MetricTable title="Retrieval & Vector search" icon={Database} rows={retrievalRows} keyLabel="Operation" loading={retrieval.isLoading || vector.isLoading} error={retrieval.isError || vector.isError} />
 
         {/* MCP has its own domain now — point there instead of duplicating the table. */}
         <Link href="/mcp" className="group flex items-center justify-between gap-3 rounded-xl border border-gray-200/80 bg-white px-5 py-4 shadow-card outline-none transition-all hover:border-splyntra-300 hover:shadow-card-hover focus-visible:ring-2 focus-visible:ring-splyntra-400 dark:border-gray-800 dark:bg-gray-900">

@@ -110,7 +110,8 @@ export function TraceList({ traces, showSource = false, controls = false, pageSi
         <EmptyState icon={Inbox} title="No traces match your filters">Try a different search term or status.</EmptyState>
       ) : (
         <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-gray-100 bg-gray-50/80 text-left dark:border-gray-800 dark:bg-gray-900/50">
               <tr>
                 <HeadCell label="Trace" sortKey="trace" controls={false} sort={tc.sort} onSort={tc.toggleSort} />
@@ -152,6 +153,7 @@ export function TraceList({ traces, showSource = false, controls = false, pageSi
               ))}
             </tbody>
           </table>
+          </div>
           {controls && <TablePagination page={tc.page} pageCount={tc.pageCount} pageSize={tc.pageSize} total={tc.total} onPage={tc.setPage} onPageSize={tc.setPageSize} unit="trace" />}
         </>
       )}
