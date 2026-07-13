@@ -19,4 +19,4 @@ __all__ = [
     "SplyntraBlocked",
     "log",
 ]
-__version__ = "1.3.0"  # x-release-please-version
+__version__ = "1.3.1"  # x-release-please-version

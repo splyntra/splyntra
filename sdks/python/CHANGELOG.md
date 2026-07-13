@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/splyntra/splyntra/compare/splyntra-v1.3.0...splyntra-v1.3.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* fix overall licensing and readme ([ac87c09](https://github.com/splyntra/splyntra/commit/ac87c093de46b35a51ec7da744c2de1a4e58ef7c))
+* fix overall licensing and readme ([19bd241](https://github.com/splyntra/splyntra/commit/19bd241928948dd9d58dff1c83375e6ad70cf465))
+
 ## [1.3.0](https://github.com/splyntra/splyntra/compare/splyntra-v1.2.0...splyntra-v1.3.0) (2026-07-12)
 
 
