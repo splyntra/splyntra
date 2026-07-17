@@ -81,3 +81,13 @@ export function registerPlanFeaturesProvider(fn: PlanFeaturesProvider): void {
 export function usePlanFeatures(): PlanFeatures | null {
   return planFeaturesProvider ? planFeaturesProvider() : null;
 }
+
+/** Whether the current org is entitled to a plan feature. Returns true in the
+ *  open edition (no provider) and while the plan is loading — so widgets on
+ *  ungated screens can use it to skip a doomed request / render an upsell in the
+ *  cloud build without ever hiding functionality in OSS. This IS a hook. */
+export function usePlanFeature(feature: string): boolean {
+  const plan = usePlanFeatures();
+  if (!plan || plan.loading) return true;
+  return plan.features.includes(feature);
+}

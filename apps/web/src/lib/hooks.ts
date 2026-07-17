@@ -65,12 +65,13 @@ export function useLogs(opts: LogQueryOpts = {}) {
   });
 }
 
-export function useSecurityIncidents(opts: IncidentQueryOpts = {}) {
+export function useSecurityIncidents(opts: IncidentQueryOpts = {}, enabled = true) {
   const { projectId } = useProject();
   return useQuery<IncidentListResponse>({
     queryKey: ["security-incidents", opts, projectId],
     queryFn: () => fetchIncidents(opts),
     retry: 1,
+    enabled,
   });
 }
 
@@ -168,11 +169,12 @@ export function useDatasets() {
   });
 }
 
-export function useEvalRuns(datasetId?: string) {
+export function useEvalRuns(datasetId?: string, enabled = true) {
   return useQuery<{ runs: EvalRun[] }>({
     queryKey: ["eval-runs", datasetId ?? "all"],
     queryFn: () => fetchEvalRuns(datasetId),
     retry: 1,
+    enabled,
   });
 }
 

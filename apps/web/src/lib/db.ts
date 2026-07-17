@@ -25,3 +25,8 @@ export function roleAtLeast(role: string | undefined, min: Role): boolean {
   if (!role || !(role in RANK)) return false;
   return RANK[role as Role] >= RANK[min];
 }
+
+/** Numeric privilege rank of a role (unknown → -1). For comparing actor vs target. */
+export function roleRank(role: string | undefined): number {
+  return role && role in RANK ? RANK[role as Role] : -1;
+}

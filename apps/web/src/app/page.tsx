@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/primitives";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { useMetrics, useCosts, useAgents, useTraces, useSecurityIncidents, useSpanMetrics } from "@/lib/hooks";
+import { usePlanFeature } from "@/lib/slots";
 import { usePlatforms } from "@/lib/platforms";
 
 // ─── formatting helpers ──────────────────────────────────────────────────────
@@ -200,7 +201,9 @@ export default function Home() {
   const costs = useCosts({ source: "agent" });
   const agents = useAgents(86400);
   const traces = useTraces({ limit: 100, source: "agent" });
-  const incidents = useSecurityIncidents({ limit: 6, source: "agent" });
+  // Security detection is Pro+; on lower plans skip the request (it would 403)
+  // — the activity feed simply omits security items rather than erroring.
+  const incidents = useSecurityIncidents({ limit: 6, source: "agent" }, usePlanFeature("secret_pii_detection"));
 
   // The three product domains, for the top-level domain row.
   const platforms = usePlatforms();
