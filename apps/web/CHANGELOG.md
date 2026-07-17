@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0](https://github.com/splyntra/splyntra/compare/dashboard-v1.6.1...dashboard-v2.0.0) (2026-07-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* relicense open core from AGPL-3.0 to FSL-1.1-ALv2
+* release open source
+* the open core is no longer distributed under AGPL-3.0 (an OSI-approved open-source license) but under the source-available FSL-1.1-ALv2. Versions already published under AGPL-3.0 remain AGPL-3.0 forever; this change applies from this release forward.
+
+### Features
+
+* release open source ([95e6fa9](https://github.com/splyntra/splyntra/commit/95e6fa9ab98c636ea393d1299c43ec840f1bcdf3))
+* relicense open core from AGPL-3.0 to FSL-1.1-ALv2 ([95e6fa9](https://github.com/splyntra/splyntra/commit/95e6fa9ab98c636ea393d1299c43ec840f1bcdf3))
+* relicense open core from AGPL-3.0 to FSL-1.1-ALv2 ([c693a31](https://github.com/splyntra/splyntra/commit/c693a310faada44045c3eed0ff6ada3cf120848e))
+
 ## [1.6.1](https://github.com/splyntra/splyntra/compare/dashboard-v1.6.0...dashboard-v1.6.1) (2026-07-13)
 
 
