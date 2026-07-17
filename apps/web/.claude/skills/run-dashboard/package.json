@@ -1,0 +1,10 @@
+{
+  "name": "run-dashboard-driver",
+  "version": "1.0.0",
+  "description": "Headless-Chrome driver for the Splyntra dashboard (apps/web)",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

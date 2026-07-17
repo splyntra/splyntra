@@ -64,7 +64,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 type Section = "" | "agents" | "platforms" | "mcp" | "observability" | "settings";
-type NavItem = { href: string; label: string; icon: LucideIcon; section: Section; locked?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon; section: Section; planFeature?: string; locked?: boolean };
 
 // Core (open-source) navigation, grouped into sections. Commercial screens
 // (governance, identity, compliance, sso, billing) are contributed by extension
@@ -78,8 +78,8 @@ const navItems: NavItem[] = [
   { href: "/logs", label: "Logs", icon: ScrollText, section: "observability" },
   { href: "/metrics", label: "Metrics", icon: LineChart, section: "observability" },
   { href: "/tools", label: "Tools & Retrieval", icon: Wrench, section: "observability" },
-  { href: "/evaluations", label: "Evaluation", icon: ClipboardCheck, section: "observability" },
-  { href: "/security", label: "Security", icon: ShieldAlert, section: "observability" },
+  { href: "/evaluations", label: "Evaluation", icon: ClipboardCheck, section: "observability", planFeature: "evaluation" },
+  { href: "/security", label: "Security", icon: ShieldAlert, section: "observability", planFeature: "secret_pii_detection" },
   { href: "/costs", label: "Costs", icon: DollarSign, section: "observability" },
   { href: "/projects", label: "Projects", icon: FolderKanban, section: "settings" },
   { href: "/alerts", label: "Alerts", icon: Bell, section: "settings" },
@@ -97,18 +97,22 @@ const SECTION_LABEL: Record<Section, string> = {
   settings: "Settings",
 };
 
-// Merge core nav with slot-contributed items. Two gates apply to slot items:
+// Merge core nav with slot-contributed items. Two gates apply (to both core and
+// slot items that carry them):
 //   • feature (edition flag): whether the code ships in this edition at all.
 //   • planFeature (per-org plan): whether the org's plan entitles it. Items the
 //     plan doesn't include stay VISIBLE but are marked `locked` (badge + upsell
 //     screen) for discoverability. While the plan is still loading (or in OSS,
 //     where there's no provider), nothing is locked — avoids nav flicker.
+// Core items may also carry a planFeature (e.g. Evaluation = Pro+ on cloud); in
+// OSS the provider is null so they never lock.
 function resolveNavItems(plan: { features: readonly string[]; loading: boolean } | null): NavItem[] {
   const entitled = (pf?: string) => {
     if (!pf) return true; // no plan gate
     if (!plan || plan.loading) return true; // unknown yet → don't lock
     return plan.features.includes(pf);
   };
+  const core = navItems.map((i) => ({ ...i, locked: !entitled(i.planFeature) }));
   const slotted = navSlotItems()
     .filter((i) => !i.feature || features[i.feature as keyof typeof features])
     .map((i) => ({
@@ -118,7 +122,7 @@ function resolveNavItems(plan: { features: readonly string[]; loading: boolean }
       section: (i.section as Section) || "observability",
       locked: !entitled(i.planFeature),
     }));
-  return [...navItems, ...slotted];
+  return [...core, ...slotted];
 }
 
 export function Sidebar() {

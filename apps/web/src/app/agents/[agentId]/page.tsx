@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAgents, useTraces, useSecurityIncidents, useCosts, useMetrics, useAgentProfile, useEvalRuns } from "@/lib/hooks";
 import { AgentItem, DetectionItem, CostModelItem } from "@/lib/api";
-import { slotWidgets } from "@/lib/slots";
+import { slotWidgets, usePlanFeature } from "@/lib/slots";
 import { TraceList } from "@/components/trace/TraceList";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { PageHeader, StatCard, Card, EmptyState, SeverityBadge } from "@/components/ui/primitives";
@@ -78,7 +78,10 @@ export default function AgentDashboardPage() {
 
   const { data: tracesData, isLoading: tracesLoading, isError: tracesError } = useTraces({ agentId, since, limit: 50 });
   const traces = tracesData?.traces || [];
-  const { data: incidentsData, isLoading: incidentsLoading, isError: incidentsError } = useSecurityIncidents({ agentId, since, limit: 100 });
+  // Security detection is Pro+; on lower plans skip the (would-be-403) request
+  // and show a locked card instead of a false "collector unavailable" error.
+  const canSecurity = usePlanFeature("secret_pii_detection");
+  const { data: incidentsData, isLoading: incidentsLoading, isError: incidentsError } = useSecurityIncidents({ agentId, since, limit: 100 }, canSecurity);
   const incidents = useMemo(() => incidentsData?.incidents || [], [incidentsData]);
   const { data: costsData, isLoading: costsLoading, isError: costsError } = useCosts(agentId);
   const models = useMemo(() => (costsData?.models || []).slice().sort((a, b) => b.total_cost - a.total_cost), [costsData]);
@@ -139,7 +142,7 @@ export default function AgentDashboardPage() {
       {tab === "overview" && (
         <div className="space-y-6">
           <div className="grid items-start gap-6 lg:grid-cols-2">
-            <SecurityCard incidents={incidents} loading={incidentsLoading} error={incidentsError} sevCounts={sevCounts} />
+            <SecurityCard incidents={incidents} loading={incidentsLoading} error={incidentsError} sevCounts={sevCounts} entitled={canSecurity} />
             <CostCard agent={agent} models={models} maxModelCost={maxModelCost} loading={costsLoading} error={costsError} costPerTrace={costPerTrace} />
           </div>
           <Card className="p-5">
@@ -169,17 +172,21 @@ export default function AgentDashboardPage() {
       {tab === "metrics" && <MetricsTab agentId={agentId} windowSec={windowSec} />}
       {tab === "evaluation" && <EvaluationTab agentId={agentId} />}
       {tab === "costs" && <AgentCostsTab agent={agent} models={models} loading={costsLoading} error={costsError} costPerTrace={costPerTrace} />}
-      {tab === "security" && <SecurityCard incidents={incidents} loading={incidentsLoading} error={incidentsError} sevCounts={sevCounts} full />}
+      {tab === "security" && <SecurityCard incidents={incidents} loading={incidentsLoading} error={incidentsError} sevCounts={sevCounts} entitled={canSecurity} full />}
       {tab === "config" && <ConfigTab agentId={agentId} />}
     </div>
   );
 }
 
-function SecurityCard({ incidents, loading, error, sevCounts, full }: { incidents: DetectionItem[]; loading: boolean; error?: boolean; sevCounts: Record<string, number>; full?: boolean }) {
+function SecurityCard({ incidents, loading, error, sevCounts, entitled = true, full }: { incidents: DetectionItem[]; loading: boolean; error?: boolean; sevCounts: Record<string, number>; entitled?: boolean; full?: boolean }) {
   return (
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-gray-500" /><h2 className="text-[13px] font-semibold uppercase tracking-wider text-gray-500">Security</h2></div>
-      {loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" /> : error ? (
+      {!entitled ? (
+        <EmptyState icon={ShieldAlert} title="Security detection is a Pro feature">
+          Secret + PII and prompt-injection findings for this agent are available on Pro and above.
+        </EmptyState>
+      ) : loading ? <div className="h-40 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" /> : error ? (
         <EmptyState icon={AlertTriangle} title="Couldn’t load detections">The collector is unavailable — check that it’s reachable, then retry.</EmptyState>
       ) : incidents.length === 0 ? (
         <EmptyState icon={ShieldCheck} title="No detections for this agent">Prompt-injection, secret, PII, and tool-guard detections appear here.</EmptyState>
@@ -357,7 +364,8 @@ function MetricChart({ title, data, dataKey, color }: { title: string; data: any
 }
 
 function EvaluationTab({ agentId }: { agentId: string }) {
-  const { data } = useEvalRuns();
+  const canEval = usePlanFeature("evaluation"); // Pro+; skip the doomed request on lower plans
+  const { data } = useEvalRuns(undefined, canEval);
   const runs = (data?.runs || []).slice(0, 10);
   const pct = (score: number) => (score <= 1 ? `${Math.round(score * 100)}%` : score.toFixed(2));
   return (
@@ -366,7 +374,9 @@ function EvaluationTab({ agentId }: { agentId: string }) {
         <h2 className="text-[13px] font-semibold uppercase tracking-wider text-gray-500">Recent evaluation runs</h2>
         <Link href="/evaluations" className="text-xs text-splyntra-600 hover:underline">Open Evaluation →</Link>
       </div>
-      {runs.length === 0 ? (
+      {!canEval ? (
+        <EmptyState icon={ClipboardCheck} title="Evaluation is a Pro feature">Datasets, scorers, and CI regression gates are available on Pro and above.</EmptyState>
+      ) : runs.length === 0 ? (
         <EmptyState icon={ClipboardCheck} title="No evaluation runs yet">Create a dataset and run scorers against {agentId}’s traces in the Evaluation section.</EmptyState>
       ) : (
         <ul className="-my-1 divide-y divide-gray-100 dark:divide-gray-800">

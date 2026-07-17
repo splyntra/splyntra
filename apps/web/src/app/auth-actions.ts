@@ -3,7 +3,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { pool, roleAtLeast } from "@/lib/db";
+import { pool, roleAtLeast, roleRank } from "@/lib/db";
 import { auth, signIn } from "@/auth";
 import { registeredInviteHandler } from "@/lib/auth-extensions";
 import { notifyMembershipChanged } from "@/lib/collector-auth";
@@ -70,7 +70,7 @@ export async function signupAction(_prev: unknown, formData: FormData) {
 // against the DB membership — NOT the JWT `role`, which a client can set via
 // next-auth update() (that would be a privilege-escalation hole). Returns the
 // caller's org and user id.
-async function requireAdminOrg(): Promise<{ orgId: string; userId: string }> {
+async function requireAdminOrg(): Promise<{ orgId: string; userId: string; role: string }> {
   const session = await auth();
   const userId = (session?.user as { id?: string })?.id;
   const orgId = (session?.user as { orgId?: string })?.orgId;
@@ -79,26 +79,9 @@ async function requireAdminOrg(): Promise<{ orgId: string; userId: string }> {
     "SELECT role FROM memberships WHERE user_id = $1 AND org_id = $2",
     [userId, orgId]
   );
-  if (!roleAtLeast(rows[0]?.role, "admin")) throw new Error("forbidden");
-  return { orgId, userId };
-}
-
-// ownerCount returns how many owners the org currently has — used to refuse the
-// removal/demotion of the last owner (which would orphan the org).
-async function ownerCount(orgId: string): Promise<number> {
-  const { rows } = await pool.query(
-    "SELECT COUNT(*)::int AS n FROM memberships WHERE org_id = $1 AND role = 'owner'",
-    [orgId]
-  );
-  return rows[0]?.n ?? 0;
-}
-
-async function memberRole(orgId: string, userId: string): Promise<string | undefined> {
-  const { rows } = await pool.query(
-    "SELECT role FROM memberships WHERE user_id = $1 AND org_id = $2",
-    [userId, orgId]
-  );
-  return rows[0]?.role as string | undefined;
+  const role = rows[0]?.role as string | undefined;
+  if (!roleAtLeast(role, "admin")) throw new Error("forbidden");
+  return { orgId, userId, role: role as string };
 }
 
 function randomToken(): string {
@@ -162,28 +145,79 @@ export async function revokeInviteAction(formData: FormData) {
 }
 
 export async function updateRoleAction(formData: FormData) {
-  const { orgId } = await requireAdminOrg();
-  const userId = String(formData.get("user_id") || "");
+  const { orgId, role: actorRole } = await requireAdminOrg();
+  const targetId = String(formData.get("user_id") || "");
   const role = String(formData.get("role") || "member");
   if (!VALID_ROLES.has(role)) return;
-  // Refuse to demote the last owner (would leave the org without an owner).
-  if (role !== "owner" && (await memberRole(orgId, userId)) === "owner" && (await ownerCount(orgId)) <= 1) {
-    return;
+  // Only an owner may grant the owner role — blocks an admin self-promoting to
+  // owner (privilege escalation).
+  if (role === "owner" && actorRole !== "owner") return;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Lock the org's owner rows: serializes concurrent role/remove changes so the
+    // last-owner check can't be raced into orphaning the org (zero owners).
+    const owners = await client.query(
+      "SELECT user_id FROM memberships WHERE org_id = $1 AND role = 'owner' FOR UPDATE",
+      [orgId]
+    );
+    const cur = await client.query(
+      "SELECT role FROM memberships WHERE org_id = $1 AND user_id = $2",
+      [orgId, targetId]
+    );
+    const targetRole = cur.rows[0]?.role as string | undefined;
+    if (!targetRole) { await client.query("ROLLBACK"); return; }
+    // An actor cannot modify a member who outranks them (e.g. admin vs owner).
+    if (roleRank(targetRole) > roleRank(actorRole)) { await client.query("ROLLBACK"); return; }
+    // Refuse to demote the last owner.
+    const ownerIds = owners.rows.map((r) => r.user_id as string);
+    if (role !== "owner" && targetRole === "owner" && ownerIds.length <= 1) {
+      await client.query("ROLLBACK"); return;
+    }
+    await client.query("UPDATE memberships SET role = $1 WHERE user_id = $2 AND org_id = $3", [role, targetId, orgId]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
   }
-  await pool.query("UPDATE memberships SET role = $1 WHERE user_id = $2 AND org_id = $3", [role, userId, orgId]);
-  notifyMembershipChanged(userId, orgId); // drop cached membership/role immediately
+  notifyMembershipChanged(targetId, orgId); // drop cached membership/role immediately
   revalidatePath("/settings/team");
 }
 
 export async function removeMemberAction(formData: FormData) {
-  const { orgId } = await requireAdminOrg();
-  const userId = String(formData.get("user_id") || "");
-  // Refuse to remove the last owner.
-  if ((await memberRole(orgId, userId)) === "owner" && (await ownerCount(orgId)) <= 1) {
-    return;
+  const { orgId, role: actorRole } = await requireAdminOrg();
+  const targetId = String(formData.get("user_id") || "");
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const owners = await client.query(
+      "SELECT user_id FROM memberships WHERE org_id = $1 AND role = 'owner' FOR UPDATE",
+      [orgId]
+    );
+    const cur = await client.query(
+      "SELECT role FROM memberships WHERE org_id = $1 AND user_id = $2",
+      [orgId, targetId]
+    );
+    const targetRole = cur.rows[0]?.role as string | undefined;
+    if (!targetRole) { await client.query("ROLLBACK"); return; }
+    // An actor cannot remove a member who outranks them (e.g. admin vs owner).
+    if (roleRank(targetRole) > roleRank(actorRole)) { await client.query("ROLLBACK"); return; }
+    // Refuse to remove the last owner.
+    const ownerIds = owners.rows.map((r) => r.user_id as string);
+    if (targetRole === "owner" && ownerIds.length <= 1) { await client.query("ROLLBACK"); return; }
+    await client.query("DELETE FROM memberships WHERE user_id = $1 AND org_id = $2", [targetId, orgId]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
   }
-  await pool.query("DELETE FROM memberships WHERE user_id = $1 AND org_id = $2", [userId, orgId]);
-  notifyMembershipChanged(userId, orgId); // revoke cached access immediately
+  notifyMembershipChanged(targetId, orgId); // revoke cached access immediately
   revalidatePath("/settings/team");
 }
 
