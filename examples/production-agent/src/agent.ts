@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // The support-triage agent. Demonstrates the production instrumentation pattern:
 // wrap your own business logic (agent + tools) with the SDK's wrappers, and let
 // auto-instrumentation capture the LLM provider. Every step becomes a span with

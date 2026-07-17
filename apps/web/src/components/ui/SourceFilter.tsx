@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 "use client";
 // Fleet-view source-domain filter (All · Agents · Platforms). Keeps the fleet
 // observability pages from silently blending agent and platform data. Value ""

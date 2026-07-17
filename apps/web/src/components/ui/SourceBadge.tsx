@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // One shared badge for the three data domains so a trace/row/header is never
 // ambiguous about which domain it belongs to. Agent = brand, Platform = amber,
 // MCP = neutral. Derive the source from a trace's `platform` via sourceOf().

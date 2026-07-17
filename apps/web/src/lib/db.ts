@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 import { Pool } from "pg";
 
 // Server-only Postgres pool for user/team management (next-auth lives in the

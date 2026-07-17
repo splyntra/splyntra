@@ -31,7 +31,7 @@ apps/security/detectors/<detector_name>.py
 
 Implement the Detector protocol:
 ```python
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 
 from dataclasses import dataclass
 
@@ -100,6 +100,6 @@ For regex/heuristic detectors that must run inline:
 ## Constraints
 
 - Detectors must be **stateless** — no instance-level caching between spans
-- AGPL-3.0 license header on all files
+- FSL-1.1-ALv2 license header on all files
 - Python detectors must not block the event loop (use async if calling external APIs)
 - Go detectors must not add more than 1ms p99 latency to the ingest path

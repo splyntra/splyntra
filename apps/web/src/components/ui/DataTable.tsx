@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 "use client";
 // Reusable client-side table controls: free-text search, sortable columns, and
 // pagination — one consistent implementation shared by every data table so they

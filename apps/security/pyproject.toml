@@ -2,7 +2,7 @@
 name = "splyntra-detector"
 version = "0.1.0"
 description = "Splyntra detection service - PII, secrets, and prompt injection"
-license = "AGPL-3.0-only"
+license = "LicenseRef-FSL-1.1-ALv2"
 requires-python = ">=3.10"
 
 dependencies = [

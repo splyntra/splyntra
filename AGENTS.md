@@ -60,7 +60,7 @@ Splyntra is unified observability + security for AI agents (open core monorepo).
 ## Conventions
 
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/) — drives release-please. Messages ARE the changelog.
-- **License headers**: SPDX on every new file. AGPL-3.0 for server/dashboard, Apache-2.0 for SDKs. See [LICENSING.md](LICENSING.md).
+- **License headers**: SPDX on every new file. FSL-1.1-ALv2 for server/dashboard/detectors, Apache-2.0 for SDKs and integrations. See [LICENSING.md](LICENSING.md).
 - **Migrations**: Auto-applied by Docker via `entrypoint-initdb.d`. No separate migrate step locally.
 - **Go module**: Each service is its own module (`github.com/splyntra/splyntra/apps/collector`).
 - **Versions**: Go 1.22+, Python 3.12+, Node 24+, TypeScript 5.x (strict).

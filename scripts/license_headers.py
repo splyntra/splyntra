@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 """Insert or verify SPDX license headers across the open-core source tree.
 
 Per LICENSING.md: files under sdks/ are Apache-2.0; everything else is
-AGPL-3.0-only. Run with no args to apply headers in place; run with --check to
+FSL-1.1-ALv2 (Functional Source License, converts to Apache-2.0 after two
+years). Run with no args to apply headers in place; run with --check to
 verify (non-zero exit if any file is missing or has the wrong header) — that is
 what CI uses.
 
@@ -29,7 +30,7 @@ LINE_COMMENT = {".go": "//", ".py": "#", ".ts": "//", ".tsx": "//", ".js": "//"}
 
 def spdx_for(path: Path) -> str:
     rel = path.relative_to(ROOT).as_posix()
-    return "Apache-2.0" if rel.startswith("sdks/") else "AGPL-3.0-only"
+    return "Apache-2.0" if rel.startswith("sdks/") else "FSL-1.1-ALv2"
 
 
 def header_line(path: Path) -> str:

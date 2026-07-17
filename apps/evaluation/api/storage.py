@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 """Postgres + object-storage (MinIO/S3) helpers for the evaluation service.
 
 Postgres holds dataset/run metadata; the object store holds dataset items as

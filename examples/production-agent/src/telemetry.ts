@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Owns the single Splyntra tracer for the process. Constructing Splyntra wires
 // the OTLP exporter, client-side redaction, and auto-instrumentation — so this
 // MUST be initialized before any LLM/agent code runs (the openai instrumentor

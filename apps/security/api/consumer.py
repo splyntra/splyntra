@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 """NATS JetStream consumer for the detector service.
 
 Subscribes to splyntra.detect subject and runs all detectors on incoming spans.

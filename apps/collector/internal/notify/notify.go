@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Package notify delivers fired-alert notifications to external channels.
 // Delivery is best-effort and fully out-of-band: dispatch runs on detached
 // background goroutines (bounded), so a slow or hung webhook never blocks

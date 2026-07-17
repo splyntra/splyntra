@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Auth extension seam (mirrors lib/slots.ts). Lets a build inject additional
 // next-auth providers and post-sign-in hooks without forking the open auth
 // setup. The open edition registers nothing here (Credentials + the implicit

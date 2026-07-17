@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 "use client";
 // The full webhook/OTLP connect recipe for a platform integration: OTLP note,
 // numbered setup steps, the webhook URL, a sample payload, a ready-to-run cURL,

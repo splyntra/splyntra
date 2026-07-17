@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 "use client";
 // Resolves catalog icon names (strings in catalog.ts) to lucide components, so
 // the data module stays free of React imports. Shared by the wizard, the Agent

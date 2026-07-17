@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Splyntra is unified observability + security for AI agents. This is the **open core** (`splyntra/splyntra`): the collector, dashboard, detectors, evaluation/security services, and SDKs. A separate **private repo `splyntra-cloud`** holds the commercial edition (governance, identity/SSO, control plane, billing, advanced detectors) and depends on this repo one-way — see "Open-core seam" below. Never add a dependency from the open core onto anything commercial.
 
-Tri-license split (enforced in CI): server core / detectors / dashboard are **AGPL-3.0**; SDKs (`sdks/*`) are **Apache-2.0**; commercial features live only in `splyntra-cloud`. New files carry an SPDX header matching their area.
+Tri-license split (enforced in CI): server core / detectors / dashboard are **FSL-1.1-ALv2** (Functional Source License — source-available, free for internal/production use but no Competing Use; each release converts to Apache-2.0 after two years); SDKs (`sdks/*`) and connectors (`integrations/*`) are **Apache-2.0**; commercial features live only in `splyntra-cloud`. New files carry an SPDX header matching their area (`FSL-1.1-ALv2` for core, `Apache-2.0` for SDKs/integrations).
 
 ## Commands
 

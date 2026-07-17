@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { TraceViewer } from "./TraceViewer";

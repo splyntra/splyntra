@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Deployable HTTP service wrapping the triage agent. Production essentials:
 // fail-fast config, liveness/readiness endpoints (k8s probes), a per-request
 // timeout with real cancellation, body-size limits, structured logs, and a

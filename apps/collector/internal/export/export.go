@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Package export forwards detection results to an external sink — a SIEM,
 // Datadog, Splunk HEC, or a generic webhook — so Splyntra is a data *source*,
 // not only a sink. Enabled by SPLYNTRA_EXPORT_URL; a no-op otherwise.

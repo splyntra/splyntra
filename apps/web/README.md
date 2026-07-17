@@ -5,7 +5,7 @@
 # @splyntra/dashboard
 
 [![npm](https://img.shields.io/npm/v/@splyntra/dashboard)](https://www.npmjs.com/package/@splyntra/dashboard)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](../../LICENSE)
+[![License](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](../../LICENSE)
 
 The Splyntra open dashboard — a composable Next.js application providing trace
 visualization, structured logs, agent/MCP/platform metrics, cost analytics,
@@ -87,4 +87,4 @@ npm run dev                        # http://localhost:3000
 
 ## License
 
-AGPL-3.0 — see [LICENSE](../../LICENSE).
+FSL-1.1-ALv2 (source-available, converts to Apache-2.0 after 2 years) — see [LICENSE](../../LICENSE).

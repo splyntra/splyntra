@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Feature flags. All false in the open-source build. The cloud/enterprise build
 // flips the relevant flags via injected runtime config (NEXT_PUBLIC_FEATURE_*),
 // which lights up nav slots whose screens are composed in from the private

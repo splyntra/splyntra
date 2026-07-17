@@ -29,7 +29,7 @@ apps/web/src/app/(dashboard)/<page-name>/page.tsx
 
 Use Server Components by default:
 ```tsx
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 
 export default async function PageName() {
   return (
@@ -71,7 +71,7 @@ Only use `"use client"` when necessary (hooks, event handlers, state):
 
 ```tsx
 "use client";
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 
 import { useState } from "react";
 ```
@@ -92,7 +92,7 @@ npm test
 
 ## Constraints
 
-- AGPL-3.0 license header on every new file
+- FSL-1.1-ALv2 license header on every new file
 - Server Components by default, `"use client"` only when needed
 - Data always proxied through collector — dashboard never talks to DB directly
 - If the page is commercial-only, it belongs in `splyntra-cloud`, not here

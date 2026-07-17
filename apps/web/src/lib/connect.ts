@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Metadata + helpers for the Connect page: the frameworks (code / in-process
 // SDK) and no-code platforms (webhook), plus a "test connection" helper that
 // posts a sample payload through the dashboard proxy so users can verify the
