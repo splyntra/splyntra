@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 """API-key authentication, sharing the collector's api_keys table + hashing.
 
 Resolves a Bearer token to a tenant (org_id, project_id). In development the

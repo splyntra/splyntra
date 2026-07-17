@@ -49,6 +49,6 @@ npx tsc --noEmit
 
 ## Gotchas
 
-- Never add AGPL-licensed code to SDKs — they are Apache-2.0
+- Never add FSL-licensed (source-available) code to SDKs — they are Apache-2.0
 - SDKs must not depend on collector internals — communicate only via OTLP
 - Test against both the collector and a mock OTLP receiver

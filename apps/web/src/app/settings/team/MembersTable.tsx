@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 "use client";
 // Client wrapper for the org members table so it can offer client-side
 // pagination + a rows-per-page selector (the parent page is a server component

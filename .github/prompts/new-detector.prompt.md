@@ -13,7 +13,7 @@ Add a new security detector: ${input:detector_name}
 3. Register in the detector registry
 4. Add ClickHouse enum value in a new migration: `migrations/clickhouse/xxx_detector_enum_expand.sql`
 5. Write tests in `apps/security/tests/test_${input:detector_name}.py`
-6. Add SPDX header (AGPL-3.0) to all new files
+6. Add SPDX header (FSL-1.1-ALv2) to all new files
 
 ## Detector Protocol
 

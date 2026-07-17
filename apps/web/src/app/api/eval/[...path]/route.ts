@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Runtime proxy to the evaluation service (same pattern as the collector
 // proxy). Resolves the service URL from the environment per request so one
 // image works for self-host and managed cloud.

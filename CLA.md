@@ -19,10 +19,11 @@ repository, you agree to the following:
    transfer your contribution.
 
 3. **Dual licensing.** You acknowledge and agree that the Company may license your
-   contribution under the Project's open-source license (AGPL-3.0 or Apache-2.0 as
-   applicable per `LICENSING.md`) **and** under separate commercial terms. This is
-   what allows the Company to offer the software to enterprise customers who cannot
-   accept copyleft.
+   contribution under the Project's applicable license (the Functional Source
+   License `FSL-1.1-ALv2`, or Apache-2.0 for SDKs/integrations, per `LICENSING.md`)
+   **and** under separate commercial terms. This is what allows the Company to offer
+   the software to enterprise customers who require commercial terms, and to evolve
+   the Project's licensing.
 
 4. **You have the right to contribute.** You represent that each contribution is
    your original creation and that you are legally entitled to grant the above

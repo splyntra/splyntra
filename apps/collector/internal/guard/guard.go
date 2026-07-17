@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Package guard is the collector's synchronous, inline content guardrail — the
 // "prevent, not just detect" path. It runs fast, high-confidence checks in Go
 // (no ML) so an SDK pre-flight hook can block or redact a prompt/response before

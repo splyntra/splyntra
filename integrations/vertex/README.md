@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Google Vertex Agent Engine → Splyntra recipe
 
 Two ways to get Vertex Agent Engine (Reasoning Engine / ADK) traces into Splyntra.

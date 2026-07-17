@@ -2,7 +2,7 @@
 name = "splyntra-evaluation"
 version = "0.1.0"
 description = "Splyntra evaluation service - datasets, scorers, regression gates"
-license = "AGPL-3.0-only"
+license = "LicenseRef-FSL-1.1-ALv2"
 requires-python = ">=3.10"
 
 dependencies = [

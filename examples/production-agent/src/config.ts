@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: FSL-1.1-ALv2
 // Validated, immutable runtime configuration. Loaded once at startup so the
 // service fails fast (before binding a port) when something required is missing
 // or nonsensical — never half-configured in production.

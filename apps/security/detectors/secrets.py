@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 """Secret Detection using gitleaks-style patterns.
 
 Patterns are derived from the gitleaks rule sets (Go-native, Apache-2.0 licensed).

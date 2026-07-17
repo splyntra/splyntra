@@ -77,10 +77,10 @@ npm test
 ## License Header Check
 
 Every new file needs an SPDX header:
-- Server/Dashboard: `// SPDX-License-Identifier: AGPL-3.0-only`
+- Server/Dashboard: `// SPDX-License-Identifier: FSL-1.1-ALv2`
 - SDKs: `// SPDX-License-Identifier: Apache-2.0`
-- Python: `# SPDX-License-Identifier: AGPL-3.0-only` (or Apache-2.0 for SDKs)
-- SQL: `-- SPDX-License-Identifier: AGPL-3.0-only`
+- Python: `# SPDX-License-Identifier: FSL-1.1-ALv2` (or Apache-2.0 for SDKs)
+- SQL: `-- SPDX-License-Identifier: FSL-1.1-ALv2`
 
 ## Commit Message Format
 

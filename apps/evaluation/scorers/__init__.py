@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 """Evaluation scorers.
 
 A scorer takes an item ``{input, expected, actual, tool_calls?, latency_ms?,

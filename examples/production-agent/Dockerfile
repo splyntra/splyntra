@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: FSL-1.1-ALv2
 # Multi-stage production image for the triage agent service.
 FROM node:20-alpine AS build
 WORKDIR /app
