@@ -13,22 +13,22 @@ from detectors.models import Detection
 
 router = APIRouter()
 
-# Internal service token for service-to-service auth
+# Internal service token for service-to-service auth. When unset, the detector
+# runs unauthenticated — the default for an internal-network deployment (the
+# detector is reached by the collector/consumer, not the public internet). Set
+# INTERNAL_SERVICE_TOKEN to require auth on a directly-exposed deployment.
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "")
-ENV = os.getenv("ENV", "")
 
 
 def _authorize(request: Request) -> None:
-    """Service-to-service auth for /detect. Uses a constant-time comparison; when
-    no token is configured it fails closed in production and is permissive only in
-    explicit development (so a prod misconfig can't leave the endpoint open)."""
-    if INTERNAL_SERVICE_TOKEN:
-        header = request.headers.get("Authorization", "")
-        token = header[7:] if header.startswith("Bearer ") else ""
-        if not hmac.compare_digest(token, INTERNAL_SERVICE_TOKEN):
-            raise HTTPException(status_code=401, detail="Unauthorized")
+    """Service-to-service auth for /detect. Compares the bearer token in constant
+    time (avoiding a timing side-channel); when no token is configured the
+    endpoint is open (see INTERNAL_SERVICE_TOKEN above)."""
+    if not INTERNAL_SERVICE_TOKEN:
         return
-    if ENV != "development":
+    header = request.headers.get("Authorization", "")
+    token = header[7:] if header.startswith("Bearer ") else ""
+    if not hmac.compare_digest(token, INTERNAL_SERVICE_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 MAX_CONTENT_LENGTH = 100_000  # 100KB max content per request
