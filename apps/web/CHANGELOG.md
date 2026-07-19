@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.0.0](https://github.com/splyntra/splyntra/compare/dashboard-v2.2.0...dashboard-v3.0.0) (2026-07-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* security and resilience hardening across collector, dashboard, …
+* security and resilience hardening across collector, dashboard
+* collector honors X-Forwarded-For only from trusted proxy CIDRs (defaults to private ranges); /detect fails closed when unconfigured in production; dashboard write-gate uses the DB-verified role.
+
+### Bug Fixes
+
+* security and resilience hardening across collector, dashboard ([bff3953](https://github.com/splyntra/splyntra/commit/bff3953c136412a0d8bef41bfa2d2736ad716b42))
+* security and resilience hardening across collector, dashboard, … ([bff3953](https://github.com/splyntra/splyntra/commit/bff3953c136412a0d8bef41bfa2d2736ad716b42))
+* security and resilience hardening across collector, dashboard, detectors, and SDKs ([49df1e9](https://github.com/splyntra/splyntra/commit/49df1e9088b3d0132c3eb1152934aa69369edbad))
+
 ## [2.2.0](https://github.com/splyntra/splyntra/compare/dashboard-v2.1.0...dashboard-v2.2.0) (2026-07-19)
 
 
