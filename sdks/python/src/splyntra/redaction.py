@@ -13,10 +13,14 @@ The pattern set mirrors the collector's hot-path redactor
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import List, Tuple
 
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
+
+_logger = logging.getLogger("splyntra.redaction")
+_warned_missing_attrs = False
 
 # (name, compiled pattern, replacement). Kept in sync with the Go redactor.
 _PATTERNS: List[Tuple[str, "re.Pattern[str]", str]] = [
@@ -62,8 +66,19 @@ class RedactingSpanProcessor(SpanProcessor):
         return None
 
     def on_end(self, span: ReadableSpan) -> None:
+        # Redaction mutates the span's attribute dict in place. OTel exposes it
+        # only via the internal `_attributes`; if a future SDK version moves it,
+        # redaction would silently become a no-op — a dangerous failure mode for
+        # a security control — so warn (once) rather than return silently.
         attributes = getattr(span, "_attributes", None)
-        if not attributes:
+        if attributes is None:
+            global _warned_missing_attrs
+            if not _warned_missing_attrs:
+                _warned_missing_attrs = True
+                _logger.warning(
+                    "splyntra: span has no `_attributes` (OpenTelemetry SDK changed?); "
+                    "client-side redaction is not running. Upgrade the splyntra SDK."
+                )
             return
         for key in list(attributes.keys()):
             value = attributes.get(key)
@@ -71,6 +86,22 @@ class RedactingSpanProcessor(SpanProcessor):
                 redacted = redact_string(value)
                 if redacted != value:
                     attributes[key] = redacted
+            elif isinstance(value, (list, tuple)):
+                # OTel allows sequence-valued attributes (e.g. message lists,
+                # tool.args); redact string elements so secrets in arrays don't
+                # bypass scrubbing. Preserve the original sequence type.
+                changed = False
+                redacted_items = []
+                for item in value:
+                    if isinstance(item, str):
+                        r = redact_string(item)
+                        if r != item:
+                            changed = True
+                        redacted_items.append(r)
+                    else:
+                        redacted_items.append(item)
+                if changed:
+                    attributes[key] = type(value)(redacted_items)
 
     def shutdown(self) -> None:
         return None

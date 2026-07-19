@@ -23,24 +23,31 @@ function collectorBase(): string {
   ).replace(/\/$/, "");
 }
 
-// Mutations require at least 'member'; viewers are read-only.
-async function forbidViewerMutation(req: NextRequest): Promise<NextResponse | null> {
+// Mutations require at least 'member'; viewers are read-only. The role MUST come
+// from resolveEffectiveRole (DB-verified for the active org), never the JWT
+// `role`, which a client can forge via next-auth update(). A null role (no
+// membership / DB down) fails closed → 403.
+async function forbidViewerMutation(req: NextRequest, session: unknown): Promise<NextResponse | null> {
   if (req.method === "GET" || req.method === "HEAD") return null;
-  const session = await getSession();
-  // Prefer the DB-verified role for the active org (cloud); the JWT `role` is
-  // client-settable via update() and must never be the sole write gate. OSS has
-  // no resolver → falls back to the session role (single implicit org).
-  const role = (await resolveEffectiveRole(session)) ?? (session?.user as { role?: string })?.role;
-  if (!roleAtLeast(role, "member")) {
+  const role = await resolveEffectiveRole(session);
+  if (!roleAtLeast(role ?? undefined, "member")) {
     return NextResponse.json({ error: "insufficient role" }, { status: 403 });
   }
   return null;
 }
 
 async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
-  const denied = await forbidViewerMutation(req);
-  if (denied) return denied;
+  // Reject path traversal before anything else: a `.`/`..` segment would let the
+  // fetched URL normalize out of the /v1/ namespace (escaping the plan gate and
+  // reaching unintended collector paths). The catch-all already URL-decodes
+  // segments, so an encoded %2e%2e arrives here as "..".
+  if (path.some((seg) => seg === "." || seg === ".." || seg.includes("/") || seg.includes("\\"))) {
+    return NextResponse.json({ error: "invalid path" }, { status: 400 });
+  }
+
   const session = await getSession();
+  const denied = await forbidViewerMutation(req, session);
+  if (denied) return denied;
 
   // Plan gate: refuse data the active org's plan doesn't include (governance /
   // identity / compliance), so deep-links and direct API calls can't bypass the
@@ -75,10 +82,10 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
       headers: { "content-type": res.headers.get("content-type") || "application/json" },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: "collector unreachable", detail: String(err) },
-      { status: 502 }
-    );
+    // Log the detail server-side; don't leak internal host/port/error codes
+    // (e.g. "connect ECONNREFUSED 10.x.x.x:4318") to the client.
+    console.error("[collector-proxy] fetch failed:", err);
+    return NextResponse.json({ error: "collector unreachable" }, { status: 502 });
   }
 }
 

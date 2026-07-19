@@ -27,7 +27,12 @@ INJECTION_PATTERNS = [
         "Attempt to override system instructions",
     ),
     (
-        r"(?i)you\s+are\s+now\s+",
+        # Require a persona/role target after "you are now" so benign phrasing
+        # ("you are now logged in", "you are now eligible …") doesn't false-trip.
+        # Bare named-persona jailbreaks ("you are now DAN") aren't matched here by
+        # design (a name isn't a determiner) — the well-known handles are covered
+        # by the explicit branch, and novel ones fall to the ML backstop.
+        r"(?i)you\s+are\s+now\s+(an?|the|acting\s+as|going\s+to|no\s+longer|in\s+\w+\s+mode|dan|stan|aim|dude)\b",
         "persona_hijack",
         "Attempt to reassign agent persona",
     ),

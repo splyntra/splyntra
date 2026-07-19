@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/mail"
 	"net/smtp"
 	"net/url"
 	"os"
@@ -61,8 +62,20 @@ func New(logger *zap.Logger) *Notifier {
 		smtpFrom = os.Getenv("SMTP_USER")
 	}
 	appURL := firstNonEmpty(os.Getenv("APP_URL"), os.Getenv("NEXT_PUBLIC_APP_URL"), "http://localhost:3000")
+	allowPrivate := strings.EqualFold(os.Getenv("ALERT_ALLOW_PRIVATE_WEBHOOKS"), "true")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	if !allowPrivate {
+		// Pin SSRF validation to the ACTUAL dial address. Checking the URL once in
+		// post() and letting http.Client re-resolve at dial time is a TOCTOU hole
+		// (DNS rebinding: answer public on the first lookup, 169.254.169.254 on
+		// the second). guardedDialContext resolves, rejects any blocked IP, then
+		// dials the vetted IP directly so no unchecked re-resolution can occur.
+		client.Transport = &http.Transport{DialContext: guardedDialContext}
+	}
+
 	return &Notifier{
-		client:       &http.Client{Timeout: 5 * time.Second},
+		client:       client,
 		logger:       logger,
 		appURL:       strings.TrimRight(appURL, "/"),
 		webhookURL:   os.Getenv("ALERT_WEBHOOK_URL"),
@@ -72,7 +85,7 @@ func New(logger *zap.Logger) *Notifier {
 		smtpUser:     os.Getenv("SMTP_USER"),
 		smtpPass:     os.Getenv("SMTP_PASS"),
 		smtpFrom:     smtpFrom,
-		allowPrivate: strings.EqualFold(os.Getenv("ALERT_ALLOW_PRIVATE_WEBHOOKS"), "true"),
+		allowPrivate: allowPrivate,
 		sem:          make(chan struct{}, maxConcurrentDeliveries),
 	}
 }
@@ -161,22 +174,42 @@ func (n *Notifier) sendEmail(to string, e Event) {
 		return
 	}
 
-	subject := fmt.Sprintf("[Splyntra] Alert: %s — %s (score %d)", e.AlertName, e.Severity, e.RiskScore)
+	// Validate recipients: reject anything that isn't a well-formed address, so a
+	// config value containing CR/LF can't inject extra SMTP headers/recipients.
+	var recipients []string
+	for _, raw := range strings.Split(to, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		addr, err := mail.ParseAddress(raw)
+		if err != nil {
+			n.logger.Warn("alert email: skipping invalid recipient", zap.String("to", raw), zap.Error(err))
+			continue
+		}
+		// Use the bare address, not the raw "Name <addr>" form, so SMTP RCPT TO
+		// gets a valid mailbox even when a display name is configured.
+		recipients = append(recipients, addr.Address)
+	}
+	if len(recipients) == 0 {
+		n.logger.Warn("alert email: no valid recipients", zap.String("alert", e.AlertName))
+		return
+	}
+
+	// Strip CR/LF from any header-bound field (alert name flows into Subject) so
+	// a crafted alert name can't inject headers either.
+	subject := stripCRLF(fmt.Sprintf("[Splyntra] Alert: %s — %s (score %d)", e.AlertName, e.Severity, e.RiskScore))
 	body := fmt.Sprintf(
 		"Alert: %s\nSeverity: %s\nRisk Score: %d\nTrace ID: %s\nProject: %s\n\nView trace: %s/traces/%s",
 		e.AlertName, e.Severity, e.RiskScore, e.TraceID, e.ProjectID, n.appURL, e.TraceID,
 	)
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s",
-		n.smtpFrom, to, subject, body)
+		n.smtpFrom, strings.Join(recipients, ", "), subject, body)
 
 	addr := n.smtpHost + ":" + n.smtpPort
 	var auth smtp.Auth
 	if n.smtpUser != "" {
 		auth = smtp.PlainAuth("", n.smtpUser, n.smtpPass, n.smtpHost)
-	}
-	recipients := strings.Split(to, ",")
-	for i := range recipients {
-		recipients[i] = strings.TrimSpace(recipients[i])
 	}
 	if err := smtp.SendMail(addr, auth, n.smtpFrom, recipients, []byte(msg)); err != nil {
 		n.logger.Warn("alert email delivery failed",
@@ -237,12 +270,58 @@ func safeURL(raw string) bool {
 		return false
 	}
 	for _, ip := range ips {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-			ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		if isBlockedIP(ip) {
 			return false
 		}
 	}
 	return true
+}
+
+// isBlockedIP reports whether an address must be refused as an SSRF risk
+// (loopback, private, link-local incl. 169.254.169.254 cloud metadata, or
+// unspecified).
+func isBlockedIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+}
+
+// guardedDialContext resolves the target host, refuses if ANY resolved address
+// is blocked (so a host answering both a public and a private IP can't slip
+// through), then dials the vetted IPs directly — pinning the checked address so
+// http.Client performs no second, unchecked DNS resolution (TOCTOU-proof).
+func guardedDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("no addresses for host %q", host)
+	}
+	for _, ipa := range ips {
+		if isBlockedIP(ipa.IP) {
+			return nil, fmt.Errorf("blocked address %s for host %q (SSRF)", ipa.IP, host)
+		}
+	}
+	var dialer net.Dialer
+	var lastErr error
+	for _, ipa := range ips {
+		conn, derr := dialer.DialContext(ctx, network, net.JoinHostPort(ipa.IP.String(), port))
+		if derr == nil {
+			return conn, nil
+		}
+		lastErr = derr
+	}
+	return nil, lastErr
+}
+
+// stripCRLF removes carriage returns and newlines so a value can be safely
+// interpolated into an email header without injecting additional headers.
+func stripCRLF(s string) string {
+	return strings.NewReplacer("\r", "", "\n", "").Replace(s)
 }
 
 func firstNonEmpty(vals ...string) string {

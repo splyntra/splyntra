@@ -50,6 +50,14 @@ class CreateDataset(BaseModel):
 @router.post("/v1/datasets", status_code=201)
 def create_dataset(body: CreateDataset, tenant: Tenant = Depends(require_tenant)):
     slug = _slug(body.name)
+    items = [i.model_dump() for i in body.items]
+    # Allocate + record the version atomically under a dataset-row lock so two
+    # concurrent uploads can't both read the same MAX(version)+1, write the same S3
+    # key, and collide on the version unique key (the previous three-transaction
+    # code raced here). FOR UPDATE serializes uploaders: the second blocks until
+    # the first commits, then reads the next version. The S3 PUT is done AFTER the
+    # transaction commits (connection released) — holding a pooled connection
+    # across S3 I/O would exhaust the small pool under concurrent uploads.
     with storage.cursor() as cur:
         cur.execute(
             """
@@ -61,21 +69,30 @@ def create_dataset(body: CreateDataset, tenant: Tenant = Depends(require_tenant)
             (tenant.org_id, tenant.project_id, body.name, slug, body.description),
         )
         dataset_id = cur.fetchone()["id"]
+        cur.execute("SELECT 1 FROM eval_datasets WHERE id = %s FOR UPDATE", (dataset_id,))
         cur.execute(
             "SELECT COALESCE(MAX(version), 0) + 1 AS v FROM eval_dataset_versions WHERE dataset_id = %s",
             (dataset_id,),
         )
         version = cur.fetchone()["v"]
-
-    items = [i.model_dump() for i in body.items]
-    key = f"{tenant.org_id}/{tenant.project_id}/{slug}/v{version}.jsonl"
-    storage.put_items(key, items)
-
-    with storage.cursor() as cur:
+        key = f"{tenant.org_id}/{tenant.project_id}/{slug}/v{version}.jsonl"
         cur.execute(
             "INSERT INTO eval_dataset_versions (dataset_id, version, item_count, object_key) VALUES (%s,%s,%s,%s)",
             (dataset_id, version, len(items), key),
         )
+
+    try:
+        storage.put_items(key, items)
+    except Exception:
+        # The version row is committed but its object failed to upload; remove the
+        # dangling row so the version doesn't point at a missing object.
+        with storage.cursor() as cur:
+            cur.execute(
+                "DELETE FROM eval_dataset_versions WHERE dataset_id = %s AND version = %s",
+                (dataset_id, version),
+            )
+        raise
+
     return {"dataset_id": dataset_id, "slug": slug, "version": version, "item_count": len(items)}
 
 

@@ -225,7 +225,7 @@ func (h *Handler) otlpToLogEvents(req *collogspb.ExportLogsServiceRequest, tenan
 					bodyStr = fmt.Sprintf("%v", rec.Body.Value)
 				}
 				redBody, _ := h.redactor.RedactString(bodyStr)
-				attrs := otlpAttrsToMap(rec.Attributes)
+				attrs := h.redactAttrs(otlpAttrsToMap(rec.Attributes))
 				if attrs == nil {
 					attrs = map[string]string{}
 				}
@@ -281,15 +281,21 @@ func (h *Handler) persistTraces(ctx context.Context, traceEvents []*streaming.Tr
 			}
 		}
 
-		// 2. Write to ClickHouse
+		// 2. Write to ClickHouse. Buffer the SPANS first: InsertSpan finalizes each
+		//    span's CostUSD, and flushTraces (which may fire concurrently from
+		//    another request overflowing the batch) aggregates cost by reading
+		//    trace.Spans. Buffering the trace before its spans' costs are computed
+		//    is a data race — the flusher would read CostUSD while this goroutine
+		//    is still writing it. Buffering the trace only after the span loop
+		//    completes means it becomes flush-visible with all span fields final.
 		if h.store != nil {
-			if err := h.store.InsertTrace(ctx, traceEvt); err != nil {
-				h.logger.Error("store trace failed", zap.Error(err))
-			}
 			for i := range traceEvt.Spans {
 				if err := h.store.InsertSpan(ctx, &traceEvt.Spans[i]); err != nil {
 					h.logger.Error("store span failed", zap.Error(err))
 				}
+			}
+			if err := h.store.InsertTrace(ctx, traceEvt); err != nil {
+				h.logger.Error("store trace failed", zap.Error(err))
 			}
 		}
 
@@ -421,7 +427,17 @@ func (h *Handler) otlpToTraceEvents(req *coltracepb.ExportTraceServiceRequest, t
 					rawOutput, _ = h.redactor.RedactString(rawOutput)
 				}
 
-				latencyMs := uint32((span.EndTimeUnixNano - span.StartTimeUnixNano) / 1_000_000)
+				// Guard against unsigned underflow: in-progress spans ship
+				// EndTimeUnixNano==0 and clock skew can make End<Start, which would
+				// wrap uint64 subtraction to ~1.8e19 and poison latency rollups.
+				var latencyMs uint32
+				if span.EndTimeUnixNano > 0 && span.StartTimeUnixNano > 0 && span.EndTimeUnixNano >= span.StartTimeUnixNano {
+					ms := (span.EndTimeUnixNano - span.StartTimeUnixNano) / 1_000_000
+					if ms > uint64(^uint32(0)) {
+						ms = uint64(^uint32(0)) // clamp (~49.7 days) rather than truncate
+					}
+					latencyMs = uint32(ms)
+				}
 
 				spanEvt := streaming.SpanEvent{
 					TraceID:          traceID,
@@ -436,7 +452,7 @@ func (h *Handler) otlpToTraceEvents(req *coltracepb.ExportTraceServiceRequest, t
 					Model:            model,
 					PromptTokens:     promptTokens,
 					CompletionTokens: completionTokens,
-					Attributes:       mergeAttrs(otlpAttrsToMap(span.Attributes), tenantAttrs),
+					Attributes:       mergeAttrs(h.redactAttrs(otlpAttrsToMap(span.Attributes)), tenantAttrs),
 					StartedAt:        time.Unix(0, int64(span.StartTimeUnixNano)),
 					RawInput:         rawInput,
 					RawOutput:        rawOutput,
@@ -473,6 +489,23 @@ func (h *Handler) otlpToTraceEvents(req *coltracepb.ExportTraceServiceRequest, t
 		result = append(result, te)
 	}
 	return result, frameworks
+}
+
+// redactAttrs applies early redaction to every attribute value before storage,
+// so secrets/PII embedded in OTLP attributes (gen_ai.prompt, gen_ai.completion,
+// traceloop.entity.input/output, db.statement, ...) are never persisted in
+// cleartext — matching the redaction already applied to raw input/output. The
+// redactor only rewrites values matching high-confidence secret patterns, so
+// benign attributes (model names, ids, workflow) pass through unchanged. Returns
+// nil for a nil map so callers relying on mergeAttrs allocating are unaffected;
+// tenant attributes are merged AFTER this, keeping resolved org/project/env ids
+// intact.
+func (h *Handler) redactAttrs(attrs map[string]string) map[string]string {
+	if attrs == nil {
+		return nil
+	}
+	redacted, _ := h.redactor.RedactMap(attrs)
+	return redacted
 }
 
 // mergeAttrs overlays tenant attributes onto span attributes, allocating a map
@@ -633,7 +666,7 @@ func (h *Handler) ReceiveEvents(w http.ResponseWriter, r *http.Request) {
 				Model:            ls.Model,
 				PromptTokens:     ls.PromptTokens,
 				CompletionTokens: ls.CompletionTokens,
-				Attributes:       mergeAttrs(ls.Attributes, tenantAttrs),
+				Attributes:       mergeAttrs(h.redactAttrs(ls.Attributes), tenantAttrs),
 				StartedAt:        started,
 				RawInput:         input,
 				RawOutput:        output,

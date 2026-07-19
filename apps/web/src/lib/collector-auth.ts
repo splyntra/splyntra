@@ -34,10 +34,11 @@ export function registerCollectorAuthResolver(fn: Resolver): void {
 }
 
 // Effective-role resolver. The JWT `role` is client-settable via next-auth
-// update(), so mutations must be gated on the DB-verified role for the active
-// org. The cloud overlay registers a resolver that looks up the membership role;
-// the open edition registers none and the caller falls back to the JWT role
-// (safe there — a single implicit org, no client-driven org/role switching).
+// update() (auth.config.ts copies it verbatim on an update trigger), so a viewer
+// could forge role:"owner" client-side — mutations must therefore be gated on the
+// DB-verified membership role, never the JWT. The cloud overlay registers a
+// resolver that looks up the role for the active org; the open edition falls back
+// to a direct Postgres lookup (below), so neither edition trusts the JWT role.
 type RoleResolver = (session: SessionLike) => Promise<string | null> | string | null;
 let roleResolver: RoleResolver | null = null;
 
@@ -46,10 +47,33 @@ export function registerRoleResolver(fn: RoleResolver): void {
   roleResolver = fn;
 }
 
-/** The DB-verified role for the session's active org, or null if none registered. */
+// Open-edition default: verify the caller's role against the memberships table
+// for their active org, keyed on the session user id + org id. A forged JWT
+// role/orgId can't produce a membership row, so this returns the caller's REAL
+// role (or null if there is no membership → treated as no access). Mirrors
+// requireAdminOrg in auth-actions.ts.
+async function defaultRoleFromDB(session: SessionLike): Promise<string | null> {
+  const userId = session?.user?.id;
+  const orgId = session?.user?.orgId;
+  if (!userId || !orgId) return null;
+  try {
+    const { pool } = await import("@/lib/db");
+    const { rows } = await pool.query(
+      "SELECT role FROM memberships WHERE user_id = $1 AND org_id = $2",
+      [userId, orgId]
+    );
+    return (rows[0]?.role as string | undefined) ?? null;
+  } catch {
+    return null; // DB unavailable → fail closed (caller denies the mutation)
+  }
+}
+
+/** The DB-verified role for the session's active org (cloud resolver if
+ *  registered, else a direct Postgres lookup). Never derived from the JWT. */
 export async function resolveEffectiveRole(session: unknown): Promise<string | null> {
-  if (!roleResolver) return null;
-  return (await roleResolver(session as SessionLike)) ?? null;
+  const s = session as SessionLike;
+  if (roleResolver) return (await roleResolver(s)) ?? null;
+  return defaultRoleFromDB(s);
 }
 
 // Path feature-gate. Plan-gated data (governance/identity/compliance) is served

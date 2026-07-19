@@ -75,19 +75,29 @@ export function registerPlanFeaturesProvider(fn: PlanFeaturesProvider): void {
   planFeaturesProvider = fn;
 }
 
+// Stable no-op provider so usePlanFeatures always invokes exactly one hook (see
+// below). Returns null — the open-edition "no plan gating" signal.
+const nullPlanFeaturesProvider: () => PlanFeatures | null = () => null;
+
 /** Read the current org's plan features, or null when no provider is registered
- *  (open edition). This IS a hook (calls the registered hook) — call it
- *  unconditionally from a component; the provider is stable per build. */
+ *  (open edition). This IS a hook. The provider is registered once at import and
+ *  never changes, so `?? nullPlanFeaturesProvider` is a stable reference and the
+ *  call is unconditional — satisfying the rules of hooks (the previous ternary
+ *  conditionally invoked a hook). */
 export function usePlanFeatures(): PlanFeatures | null {
-  return planFeaturesProvider ? planFeaturesProvider() : null;
+  return (planFeaturesProvider ?? nullPlanFeaturesProvider)();
 }
 
-/** Whether the current org is entitled to a plan feature. Returns true in the
- *  open edition (no provider) and while the plan is loading — so widgets on
- *  ungated screens can use it to skip a doomed request / render an upsell in the
- *  cloud build without ever hiding functionality in OSS. This IS a hook. */
+/** Whether to enable a plan-gated request for the current org. Returns true in
+ *  the open edition (no provider) so OSS never gates. In the cloud build it
+ *  returns FALSE while the plan is still loading — callers use this as a query
+ *  `enabled` flag, and firing before the plan resolves sends a request the plan
+ *  may not permit (a 403 flash). Once resolved it reflects real entitlement.
+ *  For nav-lock/display (which must not flash-lock during load) use
+ *  usePlanFeatures() directly and treat loading as entitled. This IS a hook. */
 export function usePlanFeature(feature: string): boolean {
   const plan = usePlanFeatures();
-  if (!plan || plan.loading) return true;
+  if (!plan) return true; // open edition — no gating
+  if (plan.loading) return false; // cloud: don't fire a request the plan may reject
   return plan.features.includes(feature);
 }

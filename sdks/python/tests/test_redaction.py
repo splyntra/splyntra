@@ -31,12 +31,38 @@ def test_no_false_positive_on_clean_text():
     assert redact_string(clean) == clean
 
 
-def test_processor_scrubs_attributes():
-    class FakeSpan:
-        def __init__(self, attrs):
-            self._attributes = attrs
+class FakeSpan:
+    def __init__(self, attrs):
+        self._attributes = attrs
 
+
+def test_processor_scrubs_attributes():
     span = FakeSpan({"splyntra.input": "key AKIAIOSFODNN7EXAMPLE", "n": 5})
     RedactingSpanProcessor().on_end(span)
     assert "AKIA" not in span._attributes["splyntra.input"]
     assert span._attributes["n"] == 5  # non-string left untouched
+
+
+def test_processor_scrubs_list_valued_attributes():
+    # OTel allows sequence-valued attributes; secrets inside a list must be
+    # redacted too (P0.8).
+    span = FakeSpan({"messages": ["hello", "key AKIAIOSFODNN7EXAMPLE", "bye"]})
+    RedactingSpanProcessor().on_end(span)
+    msgs = span._attributes["messages"]
+    assert msgs[0] == "hello" and msgs[2] == "bye"
+    assert "AKIA" not in msgs[1] and "[REDACTED:AWS_KEY]" in msgs[1]
+
+
+def test_processor_warns_and_skips_when_attributes_absent(caplog):
+    # A span whose `_attributes` holder is missing (OTel-internal change) must
+    # warn rather than silently no-op (P0.9).
+    import splyntra.redaction as red
+
+    red._warned_missing_attrs = False
+
+    class NoAttrsSpan:
+        pass
+
+    with caplog.at_level("WARNING"):
+        RedactingSpanProcessor().on_end(NoAttrsSpan())
+    assert any("redaction is not running" in r.message for r in caplog.records)

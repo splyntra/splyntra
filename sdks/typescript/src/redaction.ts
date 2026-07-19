@@ -47,6 +47,19 @@ export class RedactingSpanProcessor implements SpanProcessor {
         if (redacted !== value) {
           attrs[key] = redacted;
         }
+      } else if (Array.isArray(value)) {
+        // OTel allows array-valued attributes (e.g. message lists, tool.args).
+        // Redact string elements so secrets in arrays don't bypass scrubbing.
+        let changed = false;
+        const next = value.map((el) => {
+          if (typeof el === "string") {
+            const r = redactString(el);
+            if (r !== el) changed = true;
+            return r;
+          }
+          return el;
+        });
+        if (changed) attrs[key] = next;
       }
     }
   }

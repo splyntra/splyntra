@@ -17,7 +17,7 @@ from .models import Detection
 # matches to limit false positives on benign text.
 _CATEGORIES = {
     "hate": r"\b(kill all|exterminate|subhuman|racial slur|genocide)\b",
-    "violence": r"\b(how to (make|build) a (bomb|explosive)|detonat|mass shooting|assassinat)\b",
+    "violence": r"\b(how to (make|build) a (bomb|explosive)|detonat\w*|mass shooting|assassinat\w*)\b",
     "self_harm": r"\b(how to (kill|hurt) (myself|yourself)|commit suicide|ways to self-harm)\b",
     "sexual_minors": r"\b(child (porn|sexual)|csam|minor.{0,10}explicit)\b",
 }

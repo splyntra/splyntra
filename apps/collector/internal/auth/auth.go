@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -64,11 +65,17 @@ func NewAPIKeyAuthenticator(dsn string) *APIKeyAuthenticator {
 			db.SetMaxOpenConns(10)
 			db.SetMaxIdleConns(5)
 			db.SetConnMaxLifetime(5 * time.Minute)
-			// Test connection
+			// Keep the handle regardless of the startup ping. sql.Open does not
+			// dial; database/sql reconnects lazily on first use. Nulling the
+			// handle on a transient boot-time ping failure would permanently
+			// route every API key to the deny-all validator (401 for all
+			// ingestion) until the collector is restarted — a momentary DB blip
+			// must not become a hard outage. Ping only to surface a warning.
+			a.db = db
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			if err := db.PingContext(ctx); err == nil {
-				a.db = db
+			if err := db.PingContext(ctx); err != nil {
+				log.Printf("auth: postgres not reachable at startup (%v); will retry lazily", err)
 			}
 		}
 	}

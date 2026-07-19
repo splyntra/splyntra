@@ -150,7 +150,10 @@ func parseSource(qp url.Values) (source, platform string) {
 }
 
 // severityMinRisk maps a minimum-severity filter name to the risk_score floor
-// used by trace queries. Unknown/empty → 0 (no filter).
+// used by trace queries. Unknown/empty → 0 (no filter). These floors MUST match
+// the label thresholds in riskSeverityFromScore (streaming/consumer.go) /
+// UpdateTraceRisk (store/clickhouse.go) — otherwise a ?severity=critical filter
+// silently hides traces labelled CRITICAL. CRITICAL is >=75 there, not 90.
 func severityMinRisk(sev string) int {
 	switch strings.ToLower(sev) {
 	case "low":
@@ -160,7 +163,7 @@ func severityMinRisk(sev string) int {
 	case "high":
 		return 50
 	case "critical":
-		return 90
+		return 75
 	default:
 		return 0
 	}

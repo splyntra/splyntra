@@ -55,6 +55,11 @@ async function check(content: string, direction: string): Promise<Decision> {
       headers: { Authorization: `Bearer ${cfg.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content, direction }),
     });
+    // A non-2xx response (e.g. 403 missing guard scope, 5xx) has no usable
+    // verdict — its JSON error body lacks `action`, which would otherwise be
+    // treated as "allow" and silently forward flagged content in fail-closed
+    // mode. Throw so enforceGuard applies the configured fail-open/closed policy.
+    if (!res.ok) throw new Error(`guard http ${res.status}`);
     return (await res.json()) as Decision;
   } finally {
     clearTimeout(timer);
@@ -69,8 +74,10 @@ export async function enforceGuard(content: string, direction = "input"): Promis
   try {
     decision = await check(content, direction);
   } catch (e) {
-    if (cfg.failOpen) {
-      console.warn("[splyntra] guard check failed, proceeding (fail-open):", e);
+    // monitor mode observes but never enforces, so a guard error must not block
+    // even when failOpen is false.
+    if (cfg.failOpen || cfg.mode === "monitor") {
+      console.warn("[splyntra] guard check failed, proceeding (not enforced):", e);
       return;
     }
     throw new SplyntraBlocked(["guard_unavailable"]);

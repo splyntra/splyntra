@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -147,7 +148,7 @@ func Run() {
 
 	// Standard middleware stack
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(trustedRealIP(cfg.TrustedProxyCIDRs))
 	r.Use(middleware.Recoverer)
 	r.Use(securityHeaders)
 	r.Use(corsMiddleware(cfg.CORSOrigins))
@@ -333,21 +334,104 @@ type Config struct {
 	CORSOrigins   []string
 	ExportURL     string // outbound SIEM/webhook sink for detections (empty = off)
 	ExportToken   string // optional bearer token for the export sink
+	// Proxy CIDRs whose X-Forwarded-For/X-Real-IP headers are trusted. Defaults to
+	// loopback + private ranges (defaultTrustedProxies) so the common "proxy on a
+	// private network" topology (Docker/ingress) keeps correct per-client IPs,
+	// while a request arriving directly from a PUBLIC peer still can't spoof its
+	// IP (its socket peer isn't in a trusted range → headers ignored). Set
+	// explicitly to restrict further (e.g. a single ingress CIDR) or to "none" to
+	// trust no proxy at all.
+	TrustedProxyCIDRs []*net.IPNet
 }
+
+// defaultTrustedProxies covers loopback + RFC1918 + IPv6 loopback/ULA/link-local
+// — the networks a fronting reverse proxy normally sits on.
+const defaultTrustedProxies = "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10"
 
 func loadConfig() Config {
 	origins := envStr("CORS_ORIGINS", "http://localhost:3000")
 	return Config{
-		Port:          envInt("PORT", 4318),
-		PostgresDSN:   envStr("POSTGRES_DSN", "postgres://splyntra:splyntra@localhost:5432/splyntra?sslmode=disable"),
-		NatsURL:       envStr("NATS_URL", "nats://localhost:4222"),
-		ClickHouseDSN: envStr("CLICKHOUSE_DSN", "clickhouse://localhost:9000/splyntra"),
-		ValkeyAddr:    envStr("VALKEY_ADDR", "localhost:6379"),
-		RateLimitRPS:  envInt("RATE_LIMIT_RPS", 1000),
-		CORSOrigins:   strings.Split(origins, ","),
-		ExportURL:     envStr("SPLYNTRA_EXPORT_URL", ""),
-		ExportToken:   envStr("SPLYNTRA_EXPORT_TOKEN", ""),
+		Port:              envInt("PORT", 4318),
+		PostgresDSN:       envStr("POSTGRES_DSN", "postgres://splyntra:splyntra@localhost:5432/splyntra?sslmode=disable"),
+		NatsURL:           envStr("NATS_URL", "nats://localhost:4222"),
+		ClickHouseDSN:     envStr("CLICKHOUSE_DSN", "clickhouse://localhost:9000/splyntra"),
+		ValkeyAddr:        envStr("VALKEY_ADDR", "localhost:6379"),
+		RateLimitRPS:      envInt("RATE_LIMIT_RPS", 1000),
+		CORSOrigins:       strings.Split(origins, ","),
+		ExportURL:         envStr("SPLYNTRA_EXPORT_URL", ""),
+		ExportToken:       envStr("SPLYNTRA_EXPORT_TOKEN", ""),
+		TrustedProxyCIDRs: parseCIDRs(envStr("TRUSTED_PROXY_CIDRS", defaultTrustedProxies)),
 	}
+}
+
+// parseCIDRs parses a comma-separated list of CIDRs (or bare IPs) into networks,
+// silently dropping malformed entries.
+func parseCIDRs(csv string) []*net.IPNet {
+	var out []*net.IPNet
+	for _, part := range strings.Split(csv, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if !strings.Contains(part, "/") {
+			if strings.Contains(part, ":") {
+				part += "/128"
+			} else {
+				part += "/32"
+			}
+		}
+		if _, n, err := net.ParseCIDR(part); err == nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// trustedRealIP overrides RemoteAddr from X-Real-IP/X-Forwarded-For ONLY when the
+// direct peer is a trusted proxy. Without this gate, chi's middleware.RealIP
+// trusts those headers unconditionally, letting a client spoof X-Forwarded-For to
+// forge its IP and bypass the per-IP rate limiter (and the audit `remote` field).
+func trustedRealIP(trusted []*net.IPNet) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if peerInCIDRs(r.RemoteAddr, trusted) {
+				if ip := headerClientIP(r); ip != "" {
+					r.RemoteAddr = ip
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func peerInCIDRs(remoteAddr string, cidrs []*net.IPNet) bool {
+	if len(cidrs) == 0 {
+		return false
+	}
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, c := range cidrs {
+		if c.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func headerClientIP(r *http.Request) string {
+	if xr := strings.TrimSpace(r.Header.Get("X-Real-IP")); xr != "" {
+		return xr
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		return strings.TrimSpace(strings.Split(xff, ",")[0]) // left-most = original client
+	}
+	return ""
 }
 
 func envStr(key, fallback string) string {

@@ -78,8 +78,17 @@ SECRET_PATTERNS: list[SecretPattern] = [
     ),
     SecretPattern(
         id="openai-key",
-        description="OpenAI API Key",
+        description="OpenAI API Key (legacy)",
         regex=re.compile(r"sk-[A-Za-z0-9]{20,}T3BlbkFJ[A-Za-z0-9]{20,}"),
+        severity="CRITICAL",
+    ),
+    SecretPattern(
+        id="openai-key-project",
+        description="OpenAI API Key (project/service/admin)",
+        # Modern OpenAI keys: sk-proj-…, sk-svcacct-…, sk-admin-… (issued since
+        # 2024). These don't embed the legacy T3BlbkFJ marker and start with a
+        # `-`-containing prefix, so the legacy pattern never matches them.
+        regex=re.compile(r"sk-(proj|svcacct|admin)-[A-Za-z0-9_-]{20,}"),
         severity="CRITICAL",
     ),
     SecretPattern(

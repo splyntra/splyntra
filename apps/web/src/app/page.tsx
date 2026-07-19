@@ -413,7 +413,7 @@ export default function Home() {
           <span
             role="status"
             aria-live="polite"
-            title="Auto-refreshes every 10 seconds"
+            title="Live collector connection status"
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm ${
               connected
                 ? "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-900 dark:bg-gray-900 dark:text-emerald-300"

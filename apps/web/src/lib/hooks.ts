@@ -162,16 +162,20 @@ export function useMetrics(opts: MetricsQueryOpts = {}, enabled = true) {
 }
 
 export function useDatasets() {
+  // Eval responses are scoped to the active project (evalGet appends project_id),
+  // so projectId must be in the key or a project switch serves stale data.
+  const { projectId } = useProject();
   return useQuery<{ datasets: EvalDataset[] }>({
-    queryKey: ["eval-datasets"],
+    queryKey: ["eval-datasets", projectId],
     queryFn: () => fetchDatasets(),
     retry: 1,
   });
 }
 
 export function useEvalRuns(datasetId?: string, enabled = true) {
+  const { projectId } = useProject();
   return useQuery<{ runs: EvalRun[] }>({
-    queryKey: ["eval-runs", datasetId ?? "all"],
+    queryKey: ["eval-runs", datasetId ?? "all", projectId],
     queryFn: () => fetchEvalRuns(datasetId),
     retry: 1,
     enabled,
@@ -179,8 +183,9 @@ export function useEvalRuns(datasetId?: string, enabled = true) {
 }
 
 export function useScorers() {
+  const { projectId } = useProject();
   return useQuery<{ scorers: import("@/lib/api").Scorer[] }>({
-    queryKey: ["eval-scorers"],
+    queryKey: ["eval-scorers", projectId],
     queryFn: () => import("@/lib/api").then((m) => m.fetchScorers()),
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -188,8 +193,9 @@ export function useScorers() {
 }
 
 export function useEvalDataset(id: string | null) {
+  const { projectId } = useProject();
   return useQuery<import("@/lib/api").DatasetDetail>({
-    queryKey: ["eval-dataset", id],
+    queryKey: ["eval-dataset", id, projectId],
     queryFn: () => import("@/lib/api").then((m) => m.fetchDataset(id!)),
     enabled: !!id,
     retry: 1,
@@ -197,16 +203,18 @@ export function useEvalDataset(id: string | null) {
 }
 
 export function useEvalLeaderboard(datasetId?: string) {
+  const { projectId } = useProject();
   return useQuery<{ leaderboard: import("@/lib/api").LeaderboardRow[] }>({
-    queryKey: ["eval-leaderboard", datasetId ?? "all"],
+    queryKey: ["eval-leaderboard", datasetId ?? "all", projectId],
     queryFn: () => import("@/lib/api").then((m) => m.fetchEvalLeaderboard(datasetId)),
     retry: 1,
   });
 }
 
 export function useEvalRun(runId: string | null) {
+  const { projectId } = useProject();
   return useQuery<EvalRunDetail>({
-    queryKey: ["eval-run", runId],
+    queryKey: ["eval-run", runId, projectId],
     queryFn: () => fetchEvalRun(runId!),
     enabled: !!runId,
     retry: 1,

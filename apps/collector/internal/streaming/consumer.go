@@ -5,12 +5,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
+
+// maxProcessedKeys bounds the redelivery-dedup set. JetStream is at-least-once,
+// so a result whose write succeeded but whose Ack was lost is redelivered and
+// reprocessed — double-adding to traces.detection_count. We remember recently
+// processed message identities and skip the write on an exact-duplicate
+// redelivery. (Detection ROWS are already idempotent — the detections table is a
+// ReplacingMergeTree — so only the count increment needs this guard.)
+const maxProcessedKeys = 100_000
 
 // DetectionResult is the message published by the detector service.
 type DetectionResult struct {
@@ -41,6 +51,9 @@ type DetectionConsumer struct {
 	evaluator AlertEvaluator
 	exporter  Exporter
 	cancel    context.CancelFunc
+
+	processedMu sync.Mutex
+	processed   map[uint64]struct{} // recently-applied message identities (redelivery dedup)
 }
 
 // DetectionStore is the interface the consumer needs to persist detections.
@@ -90,10 +103,11 @@ func NewDetectionConsumer(natsURL string, logger *zap.Logger, store DetectionSto
 	}
 
 	return &DetectionConsumer{
-		nc:     nc,
-		js:     js,
-		logger: logger,
-		store:  store,
+		nc:        nc,
+		js:        js,
+		logger:    logger,
+		store:     store,
+		processed: make(map[uint64]struct{}, maxProcessedKeys),
 	}, nil
 }
 
@@ -164,6 +178,17 @@ func (c *DetectionConsumer) processMessage(ctx context.Context, msg jetstream.Ms
 		return fmt.Errorf("empty trace_id in detection result")
 	}
 
+	// Redelivery dedup: skip an exact-duplicate message we already applied, so a
+	// lost Ack doesn't double-count detections. Keyed on the raw payload, so a
+	// legitimately different result for the same span (e.g. re-detection) is NOT
+	// skipped.
+	key := fnv64(msg.Data())
+	if c.alreadyProcessed(key) {
+		c.logger.Debug("skipping duplicate detection result (redelivery)",
+			zap.String("trace_id", result.TraceID), zap.String("span_id", result.SpanID))
+		return nil // ack — already applied
+	}
+
 	// Write individual detections
 	if err := c.store.InsertDetectionResult(ctx, &result); err != nil {
 		return fmt.Errorf("insert detections: %w", err)
@@ -177,6 +202,10 @@ func (c *DetectionConsumer) processMessage(ctx context.Context, msg jetstream.Ms
 		result.RiskScore, severity, len(result.Detections)); err != nil {
 		return fmt.Errorf("update trace risk: %w", err)
 	}
+
+	// Mark applied only after a successful write, so a mid-write failure is
+	// retried rather than skipped.
+	c.markProcessed(key)
 
 	// Evaluate configured alerts against the freshly-scored trace.
 	if c.evaluator != nil {
@@ -195,6 +224,30 @@ func (c *DetectionConsumer) processMessage(ctx context.Context, msg jetstream.Ms
 	)
 
 	return nil
+}
+
+func fnv64(b []byte) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write(b)
+	return h.Sum64()
+}
+
+func (c *DetectionConsumer) alreadyProcessed(key uint64) bool {
+	c.processedMu.Lock()
+	defer c.processedMu.Unlock()
+	_, ok := c.processed[key]
+	return ok
+}
+
+func (c *DetectionConsumer) markProcessed(key uint64) {
+	c.processedMu.Lock()
+	defer c.processedMu.Unlock()
+	// Bound memory: the set only needs to cover the redelivery window (seconds),
+	// so on overflow drop it wholesale rather than tracking insertion order.
+	if len(c.processed) >= maxProcessedKeys {
+		c.processed = make(map[uint64]struct{}, maxProcessedKeys)
+	}
+	c.processed[key] = struct{}{}
 }
 
 func riskSeverityFromScore(score int) string {

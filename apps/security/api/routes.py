@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 
 from fastapi import APIRouter, HTTPException, Request
@@ -14,8 +15,30 @@ router = APIRouter()
 
 # Internal service token for service-to-service auth
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "")
+ENV = os.getenv("ENV", "")
+
+
+def _authorize(request: Request) -> None:
+    """Service-to-service auth for /detect. Uses a constant-time comparison; when
+    no token is configured it fails closed in production and is permissive only in
+    explicit development (so a prod misconfig can't leave the endpoint open)."""
+    if INTERNAL_SERVICE_TOKEN:
+        header = request.headers.get("Authorization", "")
+        token = header[7:] if header.startswith("Bearer ") else ""
+        if not hmac.compare_digest(token, INTERNAL_SERVICE_TOKEN):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        return
+    if ENV != "development":
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 MAX_CONTENT_LENGTH = 100_000  # 100KB max content per request
+
+# Detectors runnable from the content-only /detect endpoint. tool_guard is
+# intentionally excluded — it needs span_type + tool_name, which /detect does not
+# carry (it runs only in the NATS consumer path). An explicit detectors list
+# containing anything outside this set is rejected, so a typo or an unsupported
+# name can never yield a false "clean" (risk_score 0) verdict.
+SUPPORTED_DETECTORS = frozenset({"secrets", "pii", "injection", "moderation"})
 
 
 class DetectRequest(BaseModel):
@@ -40,15 +63,26 @@ async def detect(request: Request, body: DetectRequest) -> DetectResponse:
     """Run all configured detectors against the provided content."""
     import asyncio
 
-    # Service-to-service authentication
-    if INTERNAL_SERVICE_TOKEN:
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer ") or auth_header[7:] != INTERNAL_SERVICE_TOKEN:
-            raise HTTPException(status_code=401, detail="Unauthorized")
+    _authorize(request)
 
     detections: list[Detection] = []
 
     run_all = body.detectors is None
+    if not run_all:
+        # Reject an explicit-but-empty list (would run nothing → false "clean")
+        # and unknown/unsupported names, rather than silently returning risk 0.
+        if not body.detectors:
+            raise HTTPException(
+                status_code=400,
+                detail=f"no detectors specified; supported: {', '.join(sorted(SUPPORTED_DETECTORS))}",
+            )
+        unknown = [d for d in body.detectors if d not in SUPPORTED_DETECTORS]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"unsupported detector(s): {', '.join(sorted(unknown))}; "
+                f"supported: {', '.join(sorted(SUPPORTED_DETECTORS))}",
+            )
 
     # Secret detection (fast, regex-based - run inline)
     if run_all or "secrets" in body.detectors:
@@ -67,6 +101,12 @@ async def detect(request: Request, body: DetectRequest) -> DetectResponse:
         injection_detector = request.app.state.injection_detector
         injection_hits = await asyncio.to_thread(injection_detector.scan, body.content)
         detections.extend(injection_hits)
+
+    # Content moderation (CPU-bound - offload to thread pool)
+    if run_all or "moderation" in body.detectors:
+        moderation_detector = request.app.state.moderation_detector
+        moderation_hits = await asyncio.to_thread(moderation_detector.scan, body.content)
+        detections.extend(moderation_hits)
 
     # Compute risk score
     risk_score = compute_risk_score(detections)

@@ -20,7 +20,7 @@ _SPACY_MODEL = "en_core_web_sm"
 # positive vs. a bare 12-digit match.
 _AADHAAR_RE = re.compile(r"\b([2-9]\d{3})\s?(\d{4})\s?(\d{4})\b")
 # Indian PAN: 5 letters + 4 digits + 1 letter; the 4th letter is the holder type.
-_PAN_RE = re.compile(r"\b[A-Z]{3}[ABCFGHLJPTKE][A-Z]\d{4}[A-Z]\b")
+_PAN_RE = re.compile(r"\b[A-Z]{3}[ABCFGHLJPTKE][A-Z]\d{4}[A-Z]\b", re.IGNORECASE)
 
 # Verhoeff checksum tables (used by Aadhaar).
 _VERHOEFF_D = [

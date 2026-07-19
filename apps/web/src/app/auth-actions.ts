@@ -29,7 +29,8 @@ export async function signupAction(_prev: unknown, formData: FormData) {
     const existing = await client.query("SELECT 1 FROM users WHERE email = $1", [email]);
     if (existing.rowCount) return { error: "An account with that email already exists." };
 
-    // Resolve org + role from an invite, else default to the dev org.
+    // Resolve org + role from an invite, else default to the dev org (read-only,
+    // before the write transaction).
     let orgId = DEV_ORG;
     let role = "member";
     if (inviteToken) {
@@ -47,16 +48,33 @@ export async function signupAction(_prev: unknown, formData: FormData) {
     }
 
     const hash = await bcrypt.hash(password, 10);
-    const u = await client.query(
-      "INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id::text",
-      [email, hash, name]
-    );
-    await client.query(
-      "INSERT INTO memberships (user_id, org_id, role) VALUES ($1,$2,$3)",
-      [u.rows[0].id, orgId, role]
-    );
-    if (inviteToken) {
-      await client.query("UPDATE invitations SET accepted_at = NOW() WHERE token = $1", [inviteToken]);
+    // Atomic: user + membership (+ invite accept) commit together, so a failure
+    // never leaves an orphaned user row with no membership (which would trap the
+    // account in the onboarding redirect and block re-signup). The unique
+    // violation catch also closes the check-then-insert race between two
+    // concurrent signups of the same email.
+    try {
+      await client.query("BEGIN");
+      const u = await client.query(
+        "INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id::text",
+        [email, hash, name]
+      );
+      await client.query(
+        "INSERT INTO memberships (user_id, org_id, role) VALUES ($1,$2,$3)",
+        [u.rows[0].id, orgId, role]
+      );
+      if (inviteToken) {
+        await client.query("UPDATE invitations SET accepted_at = NOW() WHERE token = $1", [inviteToken]);
+      }
+      await client.query("COMMIT");
+    } catch (e) {
+      // Roll back best-effort; never let a ROLLBACK error mask the original one
+      // (which carries the unique-violation code for the friendly message).
+      await client.query("ROLLBACK").catch(() => {});
+      if ((e as { code?: string }).code === "23505") {
+        return { error: "An account with that email already exists." };
+      }
+      throw e;
     }
   } finally {
     client.release();
