@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0](https://github.com/splyntra/splyntra/compare/dashboard-v2.1.0...dashboard-v2.2.0) (2026-07-19)
+
+
+### Features
+
+* Merge pull request [#18](https://github.com/splyntra/splyntra/issues/18) from anandkr47/fix/licensing ([0826ccb](https://github.com/splyntra/splyntra/commit/0826ccb6f7a0013e0ee3c36b7ef9926b0552b0e9))
+
+
+### Bug Fixes
+
+* icons and logo ([0826ccb](https://github.com/splyntra/splyntra/commit/0826ccb6f7a0013e0ee3c36b7ef9926b0552b0e9))
+* icons and logo ([3af6bef](https://github.com/splyntra/splyntra/commit/3af6bef7d696cf762d3bff5ff451813418323e12))
+
 ## [2.1.0](https://github.com/splyntra/splyntra/compare/dashboard-v2.0.0...dashboard-v2.1.0) (2026-07-17)
 
 
