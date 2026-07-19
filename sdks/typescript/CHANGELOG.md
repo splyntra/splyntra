@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0](https://github.com/splyntra/splyntra/compare/sdk-v1.4.1...sdk-v2.0.0) (2026-07-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* security and resilience hardening across collector, dashboard, …
+* security and resilience hardening across collector, dashboard
+* collector honors X-Forwarded-For only from trusted proxy CIDRs (defaults to private ranges); /detect fails closed when unconfigured in production; dashboard write-gate uses the DB-verified role.
+
+### Bug Fixes
+
+* security and resilience hardening across collector, dashboard ([bff3953](https://github.com/splyntra/splyntra/commit/bff3953c136412a0d8bef41bfa2d2736ad716b42))
+* security and resilience hardening across collector, dashboard, … ([bff3953](https://github.com/splyntra/splyntra/commit/bff3953c136412a0d8bef41bfa2d2736ad716b42))
+* security and resilience hardening across collector, dashboard, detectors, and SDKs ([49df1e9](https://github.com/splyntra/splyntra/commit/49df1e9088b3d0132c3eb1152934aa69369edbad))
+
 ## [1.4.1](https://github.com/splyntra/splyntra/compare/sdk-v1.4.0...sdk-v1.4.1) (2026-07-13)
 
 
