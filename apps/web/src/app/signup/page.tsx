@@ -27,6 +27,7 @@ export default function SignupPage() {
         <Field name="name" type="text" label="Name" autoComplete="name" />
         <Field name="email" type="email" label="Email" autoComplete="email" />
         <Field name="password" type="password" label="Password (8+ chars)" autoComplete="new-password" />
+        <Field name="confirm" type="password" label="Confirm password" autoComplete="new-password" />
         {state?.error ? <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p> : null}
         <SubmitButton />
       </form>

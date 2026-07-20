@@ -39,6 +39,39 @@ export function navSlotItems(): readonly NavSlotItem[] {
   return navItems;
 }
 
+// Settings sub-navigation. Distinct from the main sidebar: the /settings area
+// has its own left rail grouped into "Account" and "Organization". The open
+// edition renders Profile/Security/Team/API-Keys (defined in the settings
+// layout); the cloud build contributes Organization/Billing/Usage/SSO here.
+export interface SettingsNavItem {
+  href: string;
+  label: string;
+  /** lucide-react icon name, resolved by the settings nav against its icon map. */
+  icon: string;
+  /** Which group the item belongs to in the settings rail. */
+  group: "account" | "organization";
+  /** Sort order within the group (ascending; defaults to 100). */
+  order?: number;
+  /** Optional EDITION flag (build-time NEXT_PUBLIC_FEATURE_*). */
+  feature?: string;
+  /** Optional PLAN feature (shared/pricing.ts) — non-entitled items badge + upsell. */
+  planFeature?: string;
+}
+
+const settingsItems: SettingsNavItem[] = [];
+
+/** Register a settings sub-nav item. Called by commercial screen packages. */
+export function registerSettingsNavItem(item: SettingsNavItem): void {
+  if (!settingsItems.some((i) => i.href === item.href)) {
+    settingsItems.push(item);
+  }
+}
+
+/** Settings sub-nav items contributed by extension slots (empty in OSS). */
+export function settingsNavItems(): readonly SettingsNavItem[] {
+  return settingsItems;
+}
+
 // Widget slots: locations where a commercial build can mount a React component
 // (e.g. the org switcher in the sidebar). Empty in OSS.
 import type { ComponentType } from "react";

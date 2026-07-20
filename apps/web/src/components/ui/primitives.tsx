@@ -133,6 +133,36 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   );
 }
 
+// A titled settings card: header (title + optional description), body, and an
+// optional footer strip (e.g. a Save button or a danger action). Used across the
+// Account + Organization settings pages.
+export function SettingsCard({
+  title,
+  description,
+  children,
+  footer,
+  danger = false,
+}: {
+  title: string;
+  description?: string;
+  children?: ReactNode;
+  footer?: ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <Card className={`overflow-hidden ${danger ? "border-red-200 dark:border-red-900/50" : ""}`}>
+      <div className={`border-b px-5 py-4 ${danger ? "border-red-100 dark:border-red-900/40" : "border-gray-100 dark:border-gray-800"}`}>
+        <h2 className={`text-sm font-semibold ${danger ? "text-red-700 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>{title}</h2>
+        {description && <p className="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{description}</p>}
+      </div>
+      {children != null && <div className="px-5 py-4">{children}</div>}
+      {footer && (
+        <div className="border-t border-gray-100 bg-gray-50/60 px-5 py-3 dark:border-gray-800 dark:bg-gray-900/40">{footer}</div>
+      )}
+    </Card>
+  );
+}
+
 export function StatCard({
   label,
   value,
