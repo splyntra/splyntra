@@ -10,6 +10,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { CatalogIcon, catalogIcon } from "@/lib/catalog-icons";
 import { RecipeView } from "@/components/catalog/RecipeView";
 import { Integration, Tier, TIER_LABEL, codeSnippets, ingestBaseUrl } from "@/lib/catalog";
+import { useOrgHref } from "@/lib/org-path";
 
 const TIER_TONE: Record<Tier, BadgeTone> = { native: "brand", auto: "neutral", cost: "success", planned: "muted" };
 
@@ -43,6 +44,7 @@ function CopyBtn({ text }: { text: string }) {
 // wraps the MCP client session — it observes tools/call, it does not proxy the
 // server. Shows prerequisites, both language snippets, and what gets captured.
 function McpSetup({ i }: { i: Integration }) {
+  const oh = useOrgHref();
   const [lang, setLang] = useState<"python" | "typescript">("python");
   const endpoint = ingestBaseUrl();
 
@@ -98,7 +100,7 @@ function McpSetup({ i }: { i: Integration }) {
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Prerequisites</span>
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>{i.name} server reachable and authenticated (its own token / OAuth).</li>
-          <li>An ingest key — mint one in <Link href="/settings/keys" className="text-splyntra-600 hover:underline dark:text-splyntra-300">Settings → API keys</Link>, then export it as <code className="rounded bg-white px-1 font-mono text-[11px] dark:bg-gray-900">SPLYNTRA_API_KEY</code>.</li>
+          <li>An ingest key — mint one in <Link href={oh("/settings/keys")} className="text-splyntra-600 hover:underline dark:text-splyntra-300">Settings → API keys</Link>, then export it as <code className="rounded bg-white px-1 font-mono text-[11px] dark:bg-gray-900">SPLYNTRA_API_KEY</code>.</li>
           <li>The official MCP client SDK (<code className="font-mono text-[11px]">mcp</code> for Python or <code className="font-mono text-[11px]">@modelcontextprotocol/sdk</code> for TS).</li>
         </ul>
       </div>
@@ -140,7 +142,7 @@ function McpSetup({ i }: { i: Integration }) {
         <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-500">
           <ShieldCheck className="h-3.5 w-3.5 text-gray-400" /> Args & results are redacted before storage.
         </span>
-        <Link href="/mcp" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-splyntra-600 hover:underline dark:text-splyntra-300">
+        <Link href={oh("/mcp")} className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-splyntra-600 hover:underline dark:text-splyntra-300">
           <Server className="h-3.5 w-3.5" /> Open MCP Servers <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -155,6 +157,7 @@ function McpSetup({ i }: { i: Integration }) {
 }
 
 function Setup({ i }: { i: Integration }) {
+  const oh = useOrgHref();
   if (i.tier.includes("planned")) {
     return (
       <div className="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-700">
@@ -183,7 +186,7 @@ function Setup({ i }: { i: Integration }) {
           <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3 pr-14 font-mono text-[12px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-200"><code>{snip.python}</code></pre>
           <div className="absolute right-2 top-2"><CopyBtn text={snip.python} /></div>
         </div>
-        <p className="text-xs text-gray-500">Or build a fully-configured agent in the <Link href="/agents/new" className="text-splyntra-600 hover:underline">Connect wizard</Link>.</p>
+        <p className="text-xs text-gray-500">Or build a fully-configured agent in the <Link href={oh("/agents/new")} className="text-splyntra-600 hover:underline">Connect wizard</Link>.</p>
       </div>
     );
   }

@@ -9,7 +9,20 @@ import type { NextAuthConfig } from "next-auth";
 // `/verify-email` (the email-verification link + its "check your inbox" page) is
 // cloud-only but whitelisted here so it's reachable while logged out. No route
 // exists in the open edition, so this is inert there.
-const PUBLIC = ["/login", "/signup", "/verify-email", "/accept-invite", "/api/scim"];
+// The billing webhook is an unauthenticated inbound POST (Paddle) authenticated
+// by its own signature in the handler — it must bypass the login gate, like SCIM.
+// Cloud-only; inert in the open edition (no such route ships there).
+const PUBLIC = ["/login", "/signup", "/verify-email", "/accept-invite", "/api/scim", "/api/billing/webhook"];
+
+// Top-level dashboard route segments that now live under /{org-slug}/… . If one
+// appears UN-prefixed (an old link/bookmark, or a not-yet-migrated <Link>), the
+// gate redirects it to /{orgSlug}/… so it still resolves. Edge-safe (string set,
+// no DB). Auth pages + /api/* are handled separately above and never appear here.
+const ORG_ROUTES = new Set<string>([
+  "traces", "agents", "platforms", "mcp", "logs", "metrics", "tools",
+  "evaluations", "security", "costs", "alerts", "projects", "connect",
+  "settings", "ledger", "governance", "identity", "compliance",
+]);
 
 export const authConfig: NextAuthConfig = {
   // Self-hosted (Docker/Helm) serves behind a service name / arbitrary host, so
@@ -46,9 +59,20 @@ export const authConfig: NextAuthConfig = {
       // in via the DB-touching auth-providers overlay — cannot load. Exclude
       // /onboarding itself and /api/* (server action POST, Stripe webhook, etc.)
       // to avoid redirect loops and broken callbacks.
-      const orgId = (auth!.user as { orgId?: string }).orgId;
+      const { orgId, orgSlug } = auth!.user as { orgId?: string; orgSlug?: string };
       if (!orgId && pathname !== "/onboarding" && !pathname.startsWith("/api")) {
         return Response.redirect(new URL("/onboarding", nextUrl));
+      }
+      // Path-based org routing safety-net: an un-prefixed dashboard route
+      // (/traces, /settings, …) — old bookmark or a link not yet migrated — is
+      // redirected to /{orgSlug}/… so it still resolves (the canonical routes now
+      // live under /[org]). A first segment that ISN'T a known route is treated as
+      // a slug and passes through to the [org] layout for membership resolution.
+      if (orgId && orgSlug) {
+        const seg = pathname.split("/")[1];
+        if (seg && seg !== orgSlug && ORG_ROUTES.has(seg)) {
+          return Response.redirect(new URL(`/${orgSlug}${pathname}`, nextUrl));
+        }
       }
       return true;
     },
@@ -57,14 +81,18 @@ export const authConfig: NextAuthConfig = {
         token.userId = (user as { id?: string }).id;
         token.orgId = (user as { orgId?: string }).orgId;
         token.role = (user as { role?: string }).role;
+        // orgSlug is the URL key for path-based routing (/{slug}/…). Carried in
+        // the JWT so the edge middleware can build slug redirects without a DB.
+        token.orgSlug = (user as { orgSlug?: string }).orgSlug;
       }
-      // Allow a session update() to set the active org/role without re-login —
-      // used by the cloud edition after org creation / org switching. Edge-safe
-      // (no DB): the caller passes the already-resolved values.
+      // Allow a session update() to set the active org/role/slug without re-login —
+      // used by the cloud edition after org creation / switching / slug rename.
+      // Edge-safe (no DB): the caller passes the already-resolved values.
       if (trigger === "update" && session) {
-        const s = session as { orgId?: string; role?: string };
+        const s = session as { orgId?: string; role?: string; orgSlug?: string };
         if (s.orgId) token.orgId = s.orgId;
         if (s.role) token.role = s.role;
+        if (s.orgSlug) token.orgSlug = s.orgSlug;
       }
       return token;
     },
@@ -73,6 +101,7 @@ export const authConfig: NextAuthConfig = {
         (session.user as { id?: string }).id = token.userId as string;
         (session.user as { orgId?: string }).orgId = token.orgId as string;
         (session.user as { role?: string }).role = token.role as string;
+        (session.user as { orgSlug?: string }).orgSlug = token.orgSlug as string;
       }
       return session;
     },

@@ -2,7 +2,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -40,6 +39,8 @@ import {
 import { useProjects } from "@/lib/hooks";
 import { Select } from "@/components/ui/Select";
 import { Avatar } from "@/components/ui/Avatar";
+import { useBranding } from "@/lib/branding";
+import { useOrgHref, useOrgSlug } from "@/lib/org-path";
 import { useProject } from "@/lib/project-context";
 import { features } from "@/lib/features";
 import { navSlotItems, slotWidgets, usePlanFeatures } from "@/lib/slots";
@@ -76,6 +77,7 @@ type NavItem = { href: string; label: string; icon: LucideIcon; section: Section
 // slots in the cloud build and placed into a section via their `section` field.
 const navItems: NavItem[] = [
   { href: "/", label: "Home", icon: LayoutDashboard, section: "" },
+  { href: "/projects", label: "Projects", icon: FolderKanban, section: "" },
   { href: "/agents", label: "Agents", icon: Bot, section: "agents" },
   { href: "/platforms", label: "Agent Platforms", icon: Workflow, section: "platforms" },
   { href: "/mcp", label: "MCP Servers", icon: Server, section: "mcp" },
@@ -86,7 +88,6 @@ const navItems: NavItem[] = [
   { href: "/evaluations", label: "Evaluation", icon: ClipboardCheck, section: "observability", planFeature: "evaluation" },
   { href: "/security", label: "Security", icon: ShieldAlert, section: "observability", planFeature: "secret_pii_detection" },
   { href: "/costs", label: "Costs", icon: DollarSign, section: "observability" },
-  { href: "/projects", label: "Projects", icon: FolderKanban, section: "settings" },
   { href: "/alerts", label: "Alerts", icon: Bell, section: "settings" },
   // Team, API Keys, Billing, Usage, SSO now live inside the /settings area's own
   // sub-nav (see app/settings/SettingsNav.tsx). One entry point from here.
@@ -134,18 +135,23 @@ function resolveNavItems(plan: { features: readonly string[]; loading: boolean }
 export function Sidebar() {
   const pathname = usePathname();
   const planFeatures = usePlanFeatures();
+  const { data: branding } = useBranding();
+  const orgName = branding?.org?.name || "Workspace";
+  const orgLogo = branding?.org?.logo || null;
+  const orgSlug = useOrgSlug();
+  const oh = useOrgHref();
   const items = resolveNavItems(planFeatures);
   const grouped = SECTION_ORDER.map((s) => ({ section: s, items: items.filter((i) => i.section === s) })).filter((g) => g.items.length > 0);
 
   return (
     <aside className="flex w-64 flex-col border-r border-gray-100 bg-white shadow-sidebar dark:border-gray-800/50 dark:bg-gray-950">
-      {/* Logo */}
+      {/* Active organization brand */}
       <div className="flex h-16 items-center border-b border-gray-100 px-5 dark:border-gray-800/50">
-        <Link href="/" className="flex items-center gap-3">
-          <Image src="/logo.png" alt="Splyntra" width={36} height={36} priority className="h-9 w-9 rounded-xl shadow-md shadow-splyntra-500/20" />
-          <div className="leading-tight">
-            <span className="block text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">Splyntra</span>
-            <span className="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">Observability · Security</span>
+        <Link href={oh("/")} className="flex min-w-0 items-center gap-3">
+          <Avatar name={orgName} src={orgLogo} size="md" square className="shadow-md shadow-splyntra-500/20" />
+          <div className="min-w-0 leading-tight">
+            <span className="block truncate text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">{orgName}</span>
+            <span className="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">Workspace</span>
           </div>
         </Link>
       </div>
@@ -168,12 +174,13 @@ export function Sidebar() {
               </div>
             )}
             {group.items.map((item) => {
-              const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const href = oh(item.href);
+              const isActive = href === `/${orgSlug}` ? pathname === href : pathname.startsWith(href);
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={href}
                   className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all ${
                     isActive
                       ? "bg-splyntra-50 text-splyntra-700 shadow-sm shadow-splyntra-100/50 dark:bg-splyntra-950/40 dark:text-splyntra-200 dark:shadow-none"
@@ -218,6 +225,8 @@ export function Sidebar() {
 // Sign out). Closes on outside-click or Escape.
 function UserMenu() {
   const { data: session } = useSession();
+  const { data: branding } = useBranding();
+  const oh = useOrgHref();
   const user = session?.user as { email?: string; name?: string; role?: string } | undefined;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -250,10 +259,10 @@ function UserMenu() {
           role="menu"
           className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900"
         >
-          <Link href="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
+          <Link href={oh("/settings/profile")} role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
             <UserIcon className="h-4 w-4 text-gray-400" /> Profile
           </Link>
-          <Link href="/settings" role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
+          <Link href={oh("/settings")} role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
             <Settings className="h-4 w-4 text-gray-400" /> Settings
           </Link>
           <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
@@ -268,7 +277,7 @@ function UserMenu() {
         aria-expanded={open}
         className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900"
       >
-        <Avatar name={label} size="sm" />
+        <Avatar name={label} src={branding?.user?.avatar} size="sm" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{label}</span>
           {user.role && (

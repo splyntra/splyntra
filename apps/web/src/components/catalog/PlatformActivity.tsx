@@ -13,6 +13,7 @@ import { ExportButton } from "@/components/ui/ExportButton";
 import { CatalogIcon } from "@/lib/catalog-icons";
 import { usePlatforms, platformMeta, connectablePlatforms, successRate } from "@/lib/platforms";
 import { Workflow, ChevronRight, AlertTriangle } from "lucide-react";
+import { useOrgHref } from "@/lib/org-path";
 
 function fmtMs(ms: number): string {
   if (!ms) return "—";
@@ -20,6 +21,7 @@ function fmtMs(ms: number): string {
 }
 
 export function PlatformActivity() {
+  const oh = useOrgHref();
   const router = useRouter();
   const { data, isLoading, isError } = usePlatforms();
   const rows = data?.platforms || [];
@@ -97,7 +99,7 @@ export function PlatformActivity() {
               return (
                 <tr
                   key={r.platform}
-                  onClick={() => router.push(`/platforms/${encodeURIComponent(r.platform)}`)}
+                  onClick={() => router.push(oh(`/platforms/${encodeURIComponent(r.platform)}`))}
                   className="group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
                 >
                   <td className="px-5 py-3">

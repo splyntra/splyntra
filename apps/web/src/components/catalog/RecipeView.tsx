@@ -11,8 +11,10 @@ import { Play, Loader2, Check, ArrowUpRight } from "lucide-react";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { useToast } from "@/components/ui/Toast";
 import { Integration, webhookUrl, ingestBaseUrl, platformRecipe, testIntegration, withWorkflowName } from "@/lib/catalog";
+import { useOrgHref } from "@/lib/org-path";
 
 export function RecipeView({ i, apiKey, viewHref = "/traces", workflowName }: { i: Integration; apiKey?: string; viewHref?: string; workflowName?: string }) {
+  const oh = useOrgHref();
   const toast = useToast();
   const [testing, setTesting] = useState(false);
   const [trace, setTrace] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export function RecipeView({ i, apiKey, viewHref = "/traces", workflowName }: { 
         </button>
         {trace && (
           <span className="inline-flex items-center gap-1.5 text-[13px] text-emerald-600 dark:text-emerald-400">
-            <Check className="h-4 w-4" /> Received — <Link href={viewHref} className="inline-flex items-center gap-1 underline-offset-2 hover:underline">view <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+            <Check className="h-4 w-4" /> Received — <Link href={oh(viewHref)} className="inline-flex items-center gap-1 underline-offset-2 hover:underline">view <ArrowUpRight className="h-3.5 w-3.5" /></Link>
           </span>
         )}
       </div>

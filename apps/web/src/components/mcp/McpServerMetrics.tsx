@@ -10,8 +10,10 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { useTableControls, SortableTh, TablePagination } from "@/components/ui/DataTable";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { useSpanMetrics } from "@/lib/hooks";
+import { useOrgHref } from "@/lib/org-path";
 
 export function McpServerMetrics() {
+  const oh = useOrgHref();
   const router = useRouter();
   const { data, isLoading, isError } = useSpanMetrics({ group: "mcp_server" });
   const rows = data?.groups || [];
@@ -87,7 +89,7 @@ export function McpServerMetrics() {
           {tc.view.map((r) => {
             const server = r.key || "unknown";
             return (
-              <tr key={r.key} onClick={() => router.push(`/mcp/${encodeURIComponent(server)}`)} className="group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40">
+              <tr key={r.key} onClick={() => router.push(oh(`/mcp/${encodeURIComponent(server)}`))} className="group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40">
                 <td className="px-5 py-3">
                   <span className="font-medium text-gray-900 group-hover:text-splyntra-700 dark:text-white dark:group-hover:text-splyntra-300">{server}</span>
                 </td>

@@ -21,17 +21,34 @@ function initials(label: string): string {
 
 export function Avatar({
   name,
+  src,
   size = "md",
+  square = false,
   className = "",
 }: {
   name: string;
+  /** Optional image (URL or data: URL). Falls back to initials when absent. */
+  src?: string | null;
   size?: keyof typeof SIZES;
+  /** Rounded-square (logos) instead of a circle (avatars). */
+  square?: boolean;
   className?: string;
 }) {
+  const shape = square ? "rounded-lg" : "rounded-full";
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- data:/remote URL, not a static asset
+      <img
+        src={src}
+        alt={name}
+        className={`flex-shrink-0 object-cover ${shape} ${SIZES[size]} ${className}`}
+      />
+    );
+  }
   return (
     <span
       aria-hidden
-      className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-lime-500 to-pink-500 font-semibold text-white ${SIZES[size]} ${className}`}
+      className={`inline-flex flex-shrink-0 items-center justify-center bg-gradient-to-br from-lime-500 to-pink-500 font-semibold text-white ${shape} ${SIZES[size]} ${className}`}
     >
       {initials(name)}
     </span>

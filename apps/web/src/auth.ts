@@ -43,9 +43,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user && email && !(token as { orgId?: string }).orgId) {
         try {
           const { rows } = await pool.query(
-            `SELECT u.id::text AS user_id, m.org_id::text AS org_id, m.role
+            `SELECT u.id::text AS user_id, m.org_id::text AS org_id, m.role, o.slug AS org_slug
              FROM users u
              LEFT JOIN memberships m ON m.user_id = u.id
+             LEFT JOIN organizations o ON o.id = m.org_id
              WHERE u.email = $1
              ORDER BY m.created_at ASC
              LIMIT 1`,
@@ -53,15 +54,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           );
           const row = rows[0];
           if (row) {
-            const t = token as { userId?: string; orgId?: string; role?: string };
+            const t = token as { userId?: string; orgId?: string; role?: string; orgSlug?: string };
             t.userId = row.user_id;
             if (row.org_id) {
               t.orgId = row.org_id;
               t.role = row.role || "member";
+              t.orgSlug = row.org_slug;
             }
           }
         } catch {
           // DB unavailable → leave token as-is; onboarding/authz still gate access.
+        }
+      }
+      // Backfill the org slug for sessions minted before slug-in-JWT existed (or
+      // any path that set orgId without it). Populates once, then the edge
+      // middleware can build /{slug} redirects. Guarded on orgId && !orgSlug so it
+      // runs at most until filled and never on org-less users.
+      const tk = token as { orgId?: string; orgSlug?: string };
+      if (tk.orgId && !tk.orgSlug) {
+        try {
+          const { rows } = await pool.query("SELECT slug FROM organizations WHERE id = $1", [tk.orgId]);
+          if (rows[0]) tk.orgSlug = rows[0].slug as string;
+        } catch {
+          // leave unset — the safety-net still resolves once available
         }
       }
       return token;
@@ -77,9 +92,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const { rows } = await pool.query(
           `SELECT u.id::text, u.email, u.name, u.password_hash,
-                  m.org_id::text AS org_id, m.role
+                  m.org_id::text AS org_id, m.role, o.slug AS org_slug
            FROM users u
            LEFT JOIN memberships m ON m.user_id = u.id
+           LEFT JOIN organizations o ON o.id = m.org_id
            WHERE u.email = $1
            ORDER BY m.created_at ASC
            LIMIT 1`,
@@ -94,6 +110,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: row.name,
           orgId: row.org_id,
           role: row.role || "member",
+          orgSlug: row.org_slug,
         };
       },
     }),

@@ -262,6 +262,21 @@ export async function deleteAccountAction(_prev: unknown, formData: FormData) {
   return { error: "", deleted: true };
 }
 
+// Max length of a stored avatar/logo data: URL (mirrors lib/image MAX_DATA_URL_BYTES).
+const MAX_IMAGE_DATA_URL = 512 * 1024;
+
+/** Set or clear the signed-in user's avatar (a client-resized data: URL; "" removes it). */
+export async function updateAvatarAction(dataUrl: string) {
+  const { userId } = await requireUser();
+  const v = String(dataUrl || "");
+  if (v && (!v.startsWith("data:image/") || v.length > MAX_IMAGE_DATA_URL)) {
+    return { error: "Invalid image." };
+  }
+  await pool.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [v || null, userId]);
+  revalidatePath("/settings/profile");
+  return { error: "" };
+}
+
 function randomToken(): string {
   // 32 hex chars; crypto is available in the Node server runtime.
   const bytes = new Uint8Array(16);

@@ -6,6 +6,7 @@ import { LogListItem } from "@/lib/api";
 import { Card, EmptyState } from "@/components/ui/primitives";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import { ScrollText, ArrowUpRight } from "lucide-react";
+import { useOrgHref } from "@/lib/org-path";
 
 const SEV_TONE: Record<string, BadgeTone> = {
   TRACE: "muted",
@@ -17,6 +18,7 @@ const SEV_TONE: Record<string, BadgeTone> = {
 };
 
 export function LogList({ logs }: { logs: LogListItem[] }) {
+  const oh = useOrgHref();
   if (logs.length === 0) {
     return (
       <Card>
@@ -50,7 +52,7 @@ export function LogList({ logs }: { logs: LogListItem[] }) {
               <td className="px-4 py-2.5 font-mono text-[12px] text-gray-800 dark:text-gray-200">{l.body}</td>
               <td className="px-4 py-2.5 text-right">
                 {l.trace_id ? (
-                  <Link href={`/traces/${encodeURIComponent(l.trace_id)}`} className="inline-flex items-center gap-1 text-xs text-splyntra-600 hover:underline dark:text-splyntra-300">
+                  <Link href={oh(`/traces/${encodeURIComponent(l.trace_id)}`)} className="inline-flex items-center gap-1 text-xs text-splyntra-600 hover:underline dark:text-splyntra-300">
                     {l.trace_id.slice(0, 8)}… <ArrowUpRight className="h-3 w-3" />
                   </Link>
                 ) : (

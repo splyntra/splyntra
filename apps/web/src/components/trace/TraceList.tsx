@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/Select";
 import { useTableControls, SortableTh, TablePagination, SortState } from "@/components/ui/DataTable";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { ExportColumn } from "@/lib/export";
+import { useOrgHref } from "@/lib/org-path";
 
 // Trace export columns, shared by TraceList's toolbar and the fleet Traces page.
 export const TRACE_EXPORT_COLUMNS: ExportColumn<TraceListItem>[] = [
@@ -41,6 +42,7 @@ interface TraceListProps {
 }
 
 export function TraceList({ traces, showSource = false, controls = false, pageSize = 12, emptyTitle, emptyChildren }: TraceListProps) {
+  const oh = useOrgHref();
   const router = useRouter();
   const [status, setStatus] = useState("");
 
@@ -130,7 +132,7 @@ export function TraceList({ traces, showSource = false, controls = false, pageSi
               {rows.map((trace) => (
                 <tr
                   key={trace.trace_id}
-                  onClick={() => router.push(`/traces/${trace.trace_id}`)}
+                  onClick={() => router.push(oh(`/traces/${trace.trace_id}`))}
                   className="group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60"
                 >
                   <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{trace.trace_id.slice(0, 12)}…</td>
