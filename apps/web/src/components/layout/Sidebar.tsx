@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -29,12 +30,16 @@ import {
   Server,
   Wrench,
   Gauge,
+  Settings,
+  User as UserIcon,
+  ChevronUp,
   LogOut,
   Lock,
   type LucideIcon,
 } from "lucide-react";
 import { useProjects } from "@/lib/hooks";
 import { Select } from "@/components/ui/Select";
+import { Avatar } from "@/components/ui/Avatar";
 import { useProject } from "@/lib/project-context";
 import { features } from "@/lib/features";
 import { navSlotItems, slotWidgets, usePlanFeatures } from "@/lib/slots";
@@ -83,8 +88,9 @@ const navItems: NavItem[] = [
   { href: "/costs", label: "Costs", icon: DollarSign, section: "observability" },
   { href: "/projects", label: "Projects", icon: FolderKanban, section: "settings" },
   { href: "/alerts", label: "Alerts", icon: Bell, section: "settings" },
-  { href: "/settings/keys", label: "API Keys", icon: KeyRound, section: "settings" },
-  { href: "/settings/team", label: "Team", icon: Users, section: "settings" },
+  // Team, API Keys, Billing, Usage, SSO now live inside the /settings area's own
+  // sub-nav (see app/settings/SettingsNav.tsx). One entry point from here.
+  { href: "/settings", label: "Settings", icon: Settings, section: "settings" },
 ];
 
 const SECTION_ORDER: Section[] = ["", "agents", "platforms", "mcp", "observability", "settings"];
@@ -194,7 +200,7 @@ export function Sidebar() {
             <W />
           </div>
         ))}
-        <UserFooter />
+        <UserMenu />
         <div className="mt-2 flex items-center gap-3 px-2 text-[11px] text-gray-400">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
@@ -208,22 +214,68 @@ export function Sidebar() {
   );
 }
 
-function UserFooter() {
+// Account menu: avatar + name, opening a small popover (Profile / Settings /
+// Sign out). Closes on outside-click or Escape.
+function UserMenu() {
   const { data: session } = useSession();
-  const user = session?.user as { email?: string; role?: string } | undefined;
+  const user = session?.user as { email?: string; name?: string; role?: string } | undefined;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   if (!user?.email) return null;
+  const label = user.name || user.email;
+  const itemCls =
+    "flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800";
+
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
-      <div className="min-w-0">
-        <div className="truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{user.email}</div>
-        {user.role && <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{user.role}</div>}
-      </div>
+    <div ref={ref} className="relative">
+      {open && (
+        <div
+          role="menu"
+          className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900"
+        >
+          <Link href="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
+            <UserIcon className="h-4 w-4 text-gray-400" /> Profile
+          </Link>
+          <Link href="/settings" role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
+            <Settings className="h-4 w-4 text-gray-400" /> Settings
+          </Link>
+          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+          <button role="menuitem" onClick={() => signOut({ callbackUrl: "/login" })} className={itemCls}>
+            <LogOut className="h-4 w-4 text-gray-400" /> Sign out
+          </button>
+        </div>
+      )}
       <button
-        onClick={() => signOut({ callbackUrl: "/login" })}
-        title="Sign out"
-        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900"
       >
-        <LogOut className="h-4 w-4" />
+        <Avatar name={label} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{label}</span>
+          {user.role && (
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-gray-400">{user.role}</span>
+          )}
+        </span>
+        <ChevronUp className={`h-4 w-4 flex-shrink-0 text-gray-400 transition-transform ${open ? "" : "rotate-180"}`} />
       </button>
     </div>
   );

@@ -6,7 +6,10 @@ import type { NextAuthConfig } from "next-auth";
 // SCIM (RFC 7644) is authenticated by a per-org Bearer token in the route
 // handler, not a session cookie — so it must bypass the login gate here. No SCIM
 // route exists in the open edition; the handler is composed in by the cloud build.
-const PUBLIC = ["/login", "/signup", "/accept-invite", "/api/scim"];
+// `/verify-email` (the email-verification link + its "check your inbox" page) is
+// cloud-only but whitelisted here so it's reachable while logged out. No route
+// exists in the open edition, so this is inert there.
+const PUBLIC = ["/login", "/signup", "/verify-email", "/accept-invite", "/api/scim"];
 
 export const authConfig: NextAuthConfig = {
   // Self-hosted (Docker/Helm) serves behind a service name / arbitrary host, so
