@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.1.0...dashboard-v3.2.0) (2026-07-20)
+
+
+### Features
+
+* **org:** work on org settings ([1b8d12c](https://github.com/splyntra/splyntra/commit/1b8d12c02cf7aa800ee35fb6167ac2339aaccbf9))
+* **org:** work on org settings ([1b8d12c](https://github.com/splyntra/splyntra/commit/1b8d12c02cf7aa800ee35fb6167ac2339aaccbf9))
+* **org:** work on org settings ([078337f](https://github.com/splyntra/splyntra/commit/078337f47ff76c766c54ad1decf3ea4a782749b3))
+
 ## [3.1.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.0.0...dashboard-v3.1.0) (2026-07-20)
 
 
