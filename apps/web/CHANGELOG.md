@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.0.0...dashboard-v3.1.0) (2026-07-20)
+
+
+### Features
+
+* add org settings and profile settings ([f010806](https://github.com/splyntra/splyntra/commit/f010806a57039d9a0b932e25824469e5ce9dc288))
+* add org settings and profile settings ([b7b0d3e](https://github.com/splyntra/splyntra/commit/b7b0d3efc6ae219bfe14b7a5e60a2f54284744af))
+* Merge pull request [#23](https://github.com/splyntra/splyntra/issues/23) from anandkr47/fix/licensing ([f010806](https://github.com/splyntra/splyntra/commit/f010806a57039d9a0b932e25824469e5ce9dc288))
+
 ## [3.0.0](https://github.com/splyntra/splyntra/compare/dashboard-v2.2.0...dashboard-v3.0.0) (2026-07-19)
 
 
