@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.5.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.4.0...dashboard-v3.5.0) (2026-07-21)
+
+
+### Features
+
+* add notifications settings fluctuations ([9b9004b](https://github.com/splyntra/splyntra/commit/9b9004b1e94149a3e76cc0c8e0ea8ed3b3e0e6d5))
+* add notifications settings fluctuations ([d993be4](https://github.com/splyntra/splyntra/commit/d993be41033d739344e1bea605c75984f20e6ae8))
+* Merge pull request [#31](https://github.com/splyntra/splyntra/issues/31) from anandkr47/fix/licensing ([9b9004b](https://github.com/splyntra/splyntra/commit/9b9004b1e94149a3e76cc0c8e0ea8ed3b3e0e6d5))
+
 ## [3.4.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.3.0...dashboard-v3.4.0) (2026-07-21)
 
 
