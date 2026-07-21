@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.4.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.3.0...dashboard-v3.4.0) (2026-07-21)
+
+
+### Features
+
+* add notifications settings ([ef00b39](https://github.com/splyntra/splyntra/commit/ef00b39bd06b973e60cc5ca459c19fa508cee6fc))
+* add notifications settings ([e2f787f](https://github.com/splyntra/splyntra/commit/e2f787f3406fc0fa9ad2dc804eeb6e0f3965f750))
+* Merge pull request [#29](https://github.com/splyntra/splyntra/issues/29) from anandkr47/fix/licensing ([ef00b39](https://github.com/splyntra/splyntra/commit/ef00b39bd06b973e60cc5ca459c19fa508cee6fc))
+
 ## [3.3.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.2.0...dashboard-v3.3.0) (2026-07-21)
 
 
