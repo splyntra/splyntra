@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.5.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.5.0...dashboard-v3.5.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* fix signup page concent ([2bed5d9](https://github.com/splyntra/splyntra/commit/2bed5d931756c1b642d5eaaeb4b83c63918369c8))
+* fix signup page concewt ([bce80d1](https://github.com/splyntra/splyntra/commit/bce80d1fc50017aa495e39f94e8cb61916ec417d))
+* Merge pull request [#33](https://github.com/splyntra/splyntra/issues/33) from anandkr47/fix/licensing ([2bed5d9](https://github.com/splyntra/splyntra/commit/2bed5d931756c1b642d5eaaeb4b83c63918369c8))
+
 ## [3.5.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.4.0...dashboard-v3.5.0) (2026-07-21)
 
 
