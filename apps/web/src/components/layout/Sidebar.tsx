@@ -146,14 +146,23 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 flex-col border-r border-gray-100 bg-white shadow-sidebar dark:border-gray-800/50 dark:bg-gray-950">
       {/* Active organization brand */}
-      <div className="flex h-16 items-center border-b border-gray-100 px-5 dark:border-gray-800/50">
-        <Link href={oh("/")} className="flex min-w-0 items-center gap-3">
+      <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5 dark:border-gray-800/50">
+        <Link href={oh("/")} className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar name={orgName} src={orgLogo} size="md" square className="shadow-md shadow-splyntra-500/20" />
           <div className="min-w-0 leading-tight">
             <span className="block truncate text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">{orgName}</span>
             <span className="block text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">Workspace</span>
           </div>
         </Link>
+        {/* Right-aligned header actions (e.g. the notification bell in the cloud
+            build), inline with the org name. */}
+        {slotWidgets("brandActions").length > 0 && (
+          <div className="flex flex-shrink-0 items-center gap-1">
+            {slotWidgets("brandActions").map((W, i) => (
+              <W key={i} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Sidebar-top widgets (e.g. org switcher in the cloud build) + project selector */}
@@ -291,10 +300,20 @@ function UserMenu() {
 }
 
 function ProjectSelector() {
-  const { data } = useProjects();
+  const { data, isLoading } = useProjects();
   const { projectId, setProjectId } = useProject();
   const projects = data?.projects || [];
 
+  // Skeleton while projects load (first paint / hard refresh) so the control
+  // holds its place instead of popping in.
+  if (isLoading) {
+    return (
+      <div className="block">
+        <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Project</span>
+        <div className="h-9 w-full animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+      </div>
+    );
+  }
   if (projects.length === 0) return null;
 
   return (

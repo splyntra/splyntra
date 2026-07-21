@@ -76,9 +76,14 @@ export function settingsNavItems(): readonly SettingsNavItem[] {
 // (e.g. the org switcher in the sidebar). Empty in OSS.
 import type { ComponentType } from "react";
 
-export type WidgetSlot = "sidebarTop" | "sidebarBottom" | "agentTrustGovernance";
+export type WidgetSlot =
+  | "brandActions"
+  | "sidebarTop"
+  | "sidebarBottom"
+  | "agentTrustGovernance";
 
 const widgets: Record<WidgetSlot, ComponentType[]> = {
+  brandActions: [],
   sidebarTop: [],
   sidebarBottom: [],
   agentTrustGovernance: [],
