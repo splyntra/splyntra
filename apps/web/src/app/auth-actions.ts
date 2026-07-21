@@ -12,10 +12,25 @@ import {
   registeredVerificationSender,
   registeredAccountAuthInfo,
   registeredAccountDisconnect,
+  registeredNotifier,
+  type NotifierInput,
 } from "@/lib/auth-extensions";
 import { notifyMembershipChanged } from "@/lib/collector-auth";
 
 const VALID_ROLES = new Set(["owner", "admin", "member", "viewer"]);
+
+// Emit an org notification through the cloud seam (no-op in the open edition, which
+// registers no notifier). Best-effort: a notification must never fail or delay the
+// membership mutation that produced it, so this never throws.
+async function emitNotification(input: NotifierInput): Promise<void> {
+  const n = registeredNotifier();
+  if (!n) return;
+  try {
+    await n(input);
+  } catch {
+    /* best-effort — the feed is a side effect, not part of the mutation */
+  }
+}
 
 // The seeded dev organization (migrations/postgres/001_init.sql). First signup
 // joins it as owner; subsequent signups join as members.
@@ -102,6 +117,18 @@ export async function signupAction(_prev: unknown, formData: FormData) {
         );
       }
       await client.query("COMMIT");
+      // New member joined via an accepted invite → notify the org's admins.
+      if (inviteToken) {
+        await emitNotification({
+          orgId,
+          type: "member_joined",
+          title: `${email} joined the organization`,
+          link: "/settings/team",
+          actorUserId: newUserId,
+          actorEmail: email,
+          audience: "admins",
+        });
+      }
     } catch (e) {
       // Roll back best-effort; never let a ROLLBACK error mask the original one
       // (which carries the unique-violation code for the friendly message).
@@ -419,13 +446,22 @@ export async function updateRoleAction(formData: FormData) {
     client.release();
   }
   notifyMembershipChanged(targetId, orgId); // drop cached membership/role immediately
+  // Tell the affected member their access level changed.
+  await emitNotification({
+    orgId,
+    type: "role_changed",
+    title: `Your role is now ${role}`,
+    link: "/settings/team",
+    audience: { userIds: [targetId] },
+  });
   revalidatePath("/settings/team");
 }
 
 export async function removeMemberAction(formData: FormData) {
-  const { orgId, role: actorRole } = await requireAdminOrg();
+  const { orgId, userId: actorId, role: actorRole } = await requireAdminOrg();
   const targetId = String(formData.get("user_id") || "");
 
+  let removedEmail = "";
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -434,11 +470,13 @@ export async function removeMemberAction(formData: FormData) {
       [orgId]
     );
     const cur = await client.query(
-      "SELECT role FROM memberships WHERE org_id = $1 AND user_id = $2",
+      `SELECT m.role, u.email FROM memberships m JOIN users u ON u.id = m.user_id
+       WHERE m.org_id = $1 AND m.user_id = $2`,
       [orgId, targetId]
     );
     const targetRole = cur.rows[0]?.role as string | undefined;
     if (!targetRole) { await client.query("ROLLBACK"); return; }
+    removedEmail = (cur.rows[0]?.email as string) || "";
     // An actor cannot remove a member who outranks them (e.g. admin vs owner).
     if (roleRank(targetRole) > roleRank(actorRole)) { await client.query("ROLLBACK"); return; }
     // Refuse to remove the last owner.
@@ -453,6 +491,16 @@ export async function removeMemberAction(formData: FormData) {
     client.release();
   }
   notifyMembershipChanged(targetId, orgId); // revoke cached access immediately
+  // Notify the remaining admins (the removed user is no longer a member, so the
+  // "admins" audience naturally excludes them).
+  await emitNotification({
+    orgId,
+    type: "member_removed",
+    title: `${removedEmail || "A member"} was removed from the organization`,
+    link: "/settings/team",
+    actorUserId: actorId,
+    audience: "admins",
+  });
   revalidatePath("/settings/team");
 }
 
@@ -463,6 +511,7 @@ export async function removeMemberAction(formData: FormData) {
 export async function acceptInviteAsUserAction(_prev: unknown, formData: FormData) {
   const session = await auth();
   const userId = (session?.user as { id?: string })?.id;
+  const userEmail = (session?.user as { email?: string })?.email || "";
   if (!userId) return { error: "Please sign in to accept this invitation." };
   const token = String(formData.get("invite") || "").trim();
   if (!token) return { error: "Missing invite token." };
@@ -487,6 +536,16 @@ export async function acceptInviteAsUserAction(_prev: unknown, formData: FormDat
     );
     await client.query("UPDATE invitations SET accepted_at = NOW() WHERE id = $1", [inv.rows[0].id]);
     await client.query("COMMIT");
+    // Notify the org's admins that the invitee accepted and joined.
+    await emitNotification({
+      orgId,
+      type: "member_joined",
+      title: `${userEmail || "A new member"} joined the organization`,
+      link: "/settings/team",
+      actorUserId: userId,
+      actorEmail: userEmail || undefined,
+      audience: "admins",
+    });
     return { error: "", orgId, role };
   } catch {
     await client.query("ROLLBACK");
