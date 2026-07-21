@@ -10,6 +10,8 @@ import {
   registeredInviteHandler,
   registeredSignupProvisioner,
   registeredVerificationSender,
+  registeredAccountAuthInfo,
+  registeredAccountDisconnect,
 } from "@/lib/auth-extensions";
 import { notifyMembershipChanged } from "@/lib/collector-auth";
 
@@ -175,7 +177,12 @@ export async function updateProfileAction(_prev: unknown, formData: FormData) {
   return { error: "", ok: true };
 }
 
-/** Change the signed-in user's password (verifies the current one first). */
+/**
+ * Set or change the signed-in user's password. Social/SAML users have no password
+ * (`password_hash = ''`) — for them this SETS a first password (no current one to
+ * verify), which also enables email+password sign-in as a backup. Users who already
+ * have a password must confirm the current one.
+ */
 export async function changePasswordAction(_prev: unknown, formData: FormData) {
   const { userId } = await requireUser();
   const current = String(formData.get("current") || "");
@@ -185,12 +192,14 @@ export async function changePasswordAction(_prev: unknown, formData: FormData) {
   if (next !== confirm) return { error: "New passwords do not match." };
   const { rows } = await pool.query("SELECT password_hash FROM users WHERE id = $1", [userId]);
   const hash = rows[0]?.password_hash as string | undefined;
-  if (!hash || !(await bcrypt.compare(current, hash))) {
+  const hasPassword = !!hash; // '' (social/SAML) → set path, no current required
+  if (hasPassword && !(await bcrypt.compare(current, hash!))) {
     return { error: "Current password is incorrect." };
   }
   const newHash = await bcrypt.hash(next, 10);
   await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [newHash, userId]);
-  return { error: "", ok: true };
+  revalidatePath("/settings/security");
+  return { error: "", ok: true, set: !hasPassword };
 }
 
 /**
@@ -204,12 +213,22 @@ export async function changeEmailAction(_prev: unknown, formData: FormData) {
   const email = String(formData.get("email") || "").toLowerCase().trim();
   const password = String(formData.get("password") || "");
   if (!EMAIL_RE.test(email)) return { error: "Enter a valid email address." };
+  // Email is the re-link key for OAuth/SAML sign-in — changing it for a
+  // provider-linked user would orphan their identity / create a duplicate account
+  // on next sign-in. So it's managed by the provider and can't be changed here.
+  const info = registeredAccountAuthInfo();
+  if (info) {
+    const { providers } = await info(userId);
+    if (providers.length > 0) {
+      return { error: "Your email is managed by your connected sign-in — change it with that provider." };
+    }
+  }
   const { rows } = await pool.query(
     "SELECT email, name, password_hash FROM users WHERE id = $1",
     [userId]
   );
   const cur = rows[0];
-  if (!cur || !(await bcrypt.compare(password, cur.password_hash))) {
+  if (!cur || !cur.password_hash || !(await bcrypt.compare(password, cur.password_hash))) {
     return { error: "Password is incorrect." };
   }
   if (email === cur.email) return { error: "That's already your email address." };
@@ -241,10 +260,16 @@ export async function changeEmailAction(_prev: unknown, formData: FormData) {
 export async function deleteAccountAction(_prev: unknown, formData: FormData) {
   const { userId } = await requireUser();
   const password = String(formData.get("password") || "");
+  const confirm = String(formData.get("confirm") || "");
   const { rows } = await pool.query("SELECT password_hash FROM users WHERE id = $1", [userId]);
   const hash = rows[0]?.password_hash as string | undefined;
-  if (!hash || !(await bcrypt.compare(password, hash))) {
-    return { error: "Password is incorrect." };
+  if (hash) {
+    // Password user → re-authenticate with the password.
+    if (!(await bcrypt.compare(password, hash))) return { error: "Password is incorrect." };
+  } else {
+    // Social/SAML user (no password) → require the typed confirmation server-side
+    // (they're already authenticated via the session cookie).
+    if (confirm !== "DELETE") return { error: 'Type "DELETE" to confirm.' };
   }
   const sole = await pool.query(
     `SELECT o.org_id FROM memberships o
@@ -260,6 +285,23 @@ export async function deleteAccountAction(_prev: unknown, formData: FormData) {
   }
   await pool.query("DELETE FROM users WHERE id = $1", [userId]);
   return { error: "", deleted: true };
+}
+
+/**
+ * Unlink a connected sign-in provider (Google/GitHub/SAML). Delegated to the cloud
+ * seam, which refuses to remove the user's LAST sign-in method (they'd be locked
+ * out) — "set a password first". No-op in the open edition (no linked identities).
+ */
+export async function disconnectProviderAction(_prev: unknown, formData: FormData) {
+  const { userId } = await requireUser();
+  const provider = String(formData.get("provider") || "").trim();
+  if (!provider) return { error: "No provider specified." };
+  const disconnect = registeredAccountDisconnect();
+  if (!disconnect) return { error: "Connected accounts aren't available here." };
+  const res = await disconnect(userId, provider);
+  if (res.error) return { error: res.error };
+  revalidatePath("/settings/security");
+  return { error: "", ok: true };
 }
 
 // Max length of a stored avatar/logo data: URL (mirrors lib/image MAX_DATA_URL_BYTES).

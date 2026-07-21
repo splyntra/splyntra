@@ -124,3 +124,43 @@ export function registerInviteHandler(fn: InviteHandler): void {
 export function registeredInviteHandler(): InviteHandler | null {
   return inviteHandler;
 }
+
+// Account auth-method seam. The Security/Profile pages need to know which OAuth/
+// SAML identities a user has linked (a cloud-only `user_identities` table) so they
+// can adapt: social/SAML users have no password (they'd get "set a password", not
+// "change"), their login email is provider-managed (read-only), and account delete
+// can't gate on a password they don't have. The cloud build registers a reader over
+// user_identities; the open edition registers none → getter returns null → pages
+// treat everyone as a password user (correct: the open edition has no OAuth/SAML).
+export type LinkedIdentity = { provider: string; email: string | null };
+export type AccountAuthInfo = (userId: string) => Promise<{ providers: LinkedIdentity[] }>;
+
+let accountAuthInfo: AccountAuthInfo | null = null;
+
+/** Register the cloud reader for a user's linked identities. Open edition: none. */
+export function registerAccountAuthInfo(fn: AccountAuthInfo): void {
+  accountAuthInfo = fn;
+}
+
+export function registeredAccountAuthInfo(): AccountAuthInfo | null {
+  return accountAuthInfo;
+}
+
+// Disconnect-identity seam. Unlinks one OAuth/SAML provider from the user, but MUST
+// refuse to remove their last sign-in method (they'd be locked out) — so the cloud
+// implementation checks `password_hash` + remaining identities before deleting.
+export type AccountDisconnect = (
+  userId: string,
+  provider: string
+) => Promise<{ ok?: true; error?: string }>;
+
+let accountDisconnect: AccountDisconnect | null = null;
+
+/** Register the cloud identity-disconnect handler. Open edition: none. */
+export function registerAccountDisconnect(fn: AccountDisconnect): void {
+  accountDisconnect = fn;
+}
+
+export function registeredAccountDisconnect(): AccountDisconnect | null {
+  return accountDisconnect;
+}

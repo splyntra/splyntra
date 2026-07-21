@@ -7,9 +7,17 @@ import { Avatar } from "@/components/ui/Avatar";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import { SettingsCard } from "@/components/ui/primitives";
 import { updateAvatarAction } from "@/app/auth-actions";
+import { registeredAccountAuthInfo } from "@/lib/auth-extensions";
 import { ProfileForm } from "./ProfileForm";
 
 export const dynamic = "force-dynamic";
+
+const PROVIDER_LABEL: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+  "microsoft-entra-id": "Microsoft",
+  saml: "SSO",
+};
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -28,6 +36,23 @@ export default async function ProfilePage() {
     }
   }
   const label = name || email;
+
+  // Email is managed by the provider for OAuth/SAML-linked users (changing it would
+  // break the sign-in re-link) → render it read-only with the provider name.
+  let providerName = "";
+  if (userId) {
+    const info = registeredAccountAuthInfo();
+    if (info) {
+      try {
+        const { providers } = await info(userId);
+        if (providers.length > 0) {
+          providerName = providers.map((p) => PROVIDER_LABEL[p.provider] || p.provider).join(" / ");
+        }
+      } catch {
+        providerName = "";
+      }
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-6 lg:p-8">
@@ -49,7 +74,7 @@ export default async function ProfilePage() {
           <ImageUploader name={label} src={avatar} label="Photo" action={updateAvatarAction} />
         </SettingsCard>
 
-        <ProfileForm name={name} email={email} />
+        <ProfileForm name={name} email={email} emailProvider={providerName} />
       </div>
     </div>
   );

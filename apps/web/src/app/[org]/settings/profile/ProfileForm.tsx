@@ -24,7 +24,15 @@ function SaveButton({ label }: { label: string }) {
   );
 }
 
-export function ProfileForm({ name, email }: { name: string; email: string }) {
+export function ProfileForm({
+  name,
+  email,
+  emailProvider = "",
+}: {
+  name: string;
+  email: string;
+  emailProvider?: string;
+}) {
   const toast = useToast();
   const [nameState, nameAction] = useFormState(updateProfileAction, { error: "" });
   const [emailState, emailAction] = useFormState(changeEmailAction, { error: "" });
@@ -65,22 +73,34 @@ export function ProfileForm({ name, email }: { name: string; email: string }) {
         </form>
       </SettingsCard>
 
-      <SettingsCard
-        title="Email address"
-        description="Used to sign in. Changing it requires confirming your password and re-verifying the new address."
-      >
-        <form action={emailAction} className="space-y-4">
+      {emailProvider ? (
+        <SettingsCard title="Email address" description={`Managed by your ${emailProvider} account.`}>
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300">Email</span>
-            <input name="email" type="email" defaultValue={email} required className={INPUT} />
+            <input value={email} disabled className={`${INPUT} cursor-not-allowed opacity-60`} />
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300">Current password</span>
-            <input name="password" type="password" required autoComplete="current-password" className={INPUT} />
-          </label>
-          <SaveButton label="Update email" />
-        </form>
-      </SettingsCard>
+          <p className="mt-2 text-xs text-gray-400">
+            You sign in with {emailProvider}, so your email is set there. Update it with your provider to change it here.
+          </p>
+        </SettingsCard>
+      ) : (
+        <SettingsCard
+          title="Email address"
+          description="Used to sign in. Changing it requires confirming your password and re-verifying the new address."
+        >
+          <form action={emailAction} className="space-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300">Email</span>
+              <input name="email" type="email" defaultValue={email} required className={INPUT} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300">Current password</span>
+              <input name="password" type="password" required autoComplete="current-password" className={INPUT} />
+            </label>
+            <SaveButton label="Update email" />
+          </form>
+        </SettingsCard>
+      )}
     </div>
   );
 }
