@@ -46,6 +46,12 @@ export async function signupAction(_prev: unknown, formData: FormData) {
   // where signup creates the user's OWN org. Ignored in the open edition.
   const orgName = String(formData.get("org_name") || "").trim();
   const orgType = String(formData.get("org_type") || "").trim();
+  // Consent captured on the signup form: a marketing-email opt-in (optional) and
+  // acceptance of the Terms/Privacy (the form requires it). Stored on the user
+  // (marketing_opt_in + terms_accepted_at) for the admin/marketing tooling. A
+  // checkbox posts its `value` only when ticked, so absence = false/not-accepted.
+  const marketingOptIn = formData.get("marketing_opt_in") === "true";
+  const termsAccepted = formData.get("terms") === "true";
 
   if (!email || password.length < 8) {
     return { error: "Email and an 8+ char password are required." };
@@ -97,8 +103,9 @@ export async function signupAction(_prev: unknown, formData: FormData) {
     try {
       await client.query("BEGIN");
       const u = await client.query(
-        "INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id::text",
-        [email, hash, name]
+        `INSERT INTO users (email, password_hash, name, marketing_opt_in, terms_accepted_at)
+         VALUES ($1,$2,$3,$4, CASE WHEN $5 THEN NOW() ELSE NULL END) RETURNING id::text`,
+        [email, hash, name, marketingOptIn, termsAccepted]
       );
       newUserId = u.rows[0].id;
       if (inviteToken) {
