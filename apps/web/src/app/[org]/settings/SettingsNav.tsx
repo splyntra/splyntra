@@ -15,6 +15,8 @@ import {
   Building2,
   CreditCard,
   Gauge,
+  Bell,
+  Mail,
   Lock,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +32,8 @@ const ICONS: Record<string, LucideIcon> = {
   Building2,
   CreditCard,
   Gauge,
+  Bell,
+  Mail,
 };
 
 // Core settings pages (present in every edition). Cloud adds more via the slot

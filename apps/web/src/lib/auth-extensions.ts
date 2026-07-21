@@ -164,3 +164,35 @@ export function registerAccountDisconnect(fn: AccountDisconnect): void {
 export function registeredAccountDisconnect(): AccountDisconnect | null {
   return accountDisconnect;
 }
+
+// Notification seam. Org-level events that happen in the open-core team/account
+// flows (a member joined via an accepted invite, a role change, a removal) should
+// surface in the cloud notification feed — but that feed is a cloud-only table.
+// So the core EMITS through this seam and the cloud build registers a notifier
+// that writes the rows (lib/cloud/notifications). Open edition registers none →
+// getter returns null → emitting is a no-op (there's no feed to write to). The
+// notifier is best-effort and must never throw (a notification can't break the
+// mutation that produced it), so callers invoke it fire-and-forget.
+export type NotifierInput = {
+  orgId: string;
+  type: string;
+  title: string;
+  body?: string;
+  link?: string; // org-relative in-app path (e.g. "/settings/team")
+  actorUserId?: string; // excluded from the recipient set
+  actorEmail?: string;
+  // "admins" = owners + admins; "members" = everyone; { userIds } = explicit set.
+  audience: "admins" | "members" | { userIds: string[] };
+};
+export type Notifier = (input: NotifierInput) => Promise<void>;
+
+let notifier: Notifier | null = null;
+
+/** Register the cloud notification writer. Open edition: none → emits no-op. */
+export function registerNotifier(fn: Notifier): void {
+  notifier = fn;
+}
+
+export function registeredNotifier(): Notifier | null {
+  return notifier;
+}
