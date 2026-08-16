@@ -42,7 +42,11 @@ export async function apiGet<T>(path: string): Promise<T> {
       },
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      const snippet = text ? ` ${text.slice(0, 200)}` : "";
+      throw new Error(`Request failed: ${res.status}${snippet}`);
+    }
     return res.json();
   } finally {
     clearTimeout(timeout);
@@ -649,7 +653,11 @@ export async function apiSend(path: string, method: string, body?: unknown): Pro
     headers: { Authorization: `Bearer ${getApiKey()}`, "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok && res.status !== 204) throw new Error(`Request failed: ${res.status}`);
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text().catch(() => "");
+    const snippet = text ? ` ${text.slice(0, 200)}` : "";
+    throw new Error(`Request failed: ${res.status}${snippet}`);
+  }
   return res.status === 204 ? null : res.json().catch(() => null);
 }
 
