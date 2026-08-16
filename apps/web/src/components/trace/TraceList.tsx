@@ -73,9 +73,6 @@ export function TraceList({ traces, showSource = false, controls = false, pageSi
           {emptyChildren || (
             <>
               Run an instrumented agent to see traces appear here.
-              <pre className="mt-3 inline-block rounded-lg bg-gray-100 p-3 text-left text-xs dark:bg-gray-800">
-                {`pip install splyntra\npython examples/quickstart.py`}
-              </pre>
             </>
           )}
         </EmptyState>
