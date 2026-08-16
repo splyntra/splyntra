@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.6.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.5.1...dashboard-v3.6.0) (2026-08-16)
+
+
+### Features
+
+* fix the code snippet typescript ([19ffb3a](https://github.com/splyntra/splyntra/commit/19ffb3a0509285562e6ae4ca587fac00394553ce))
+* fix the code snippet typescript ([19ffb3a](https://github.com/splyntra/splyntra/commit/19ffb3a0509285562e6ae4ca587fac00394553ce))
+* fix the code snippet typescript ([12b228f](https://github.com/splyntra/splyntra/commit/12b228faf8792fc3baacf680b69349337e26159b))
+
 ## [3.5.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.5.0...dashboard-v3.5.1) (2026-07-21)
 
 
