@@ -24,9 +24,6 @@ export function LogList({ logs }: { logs: LogListItem[] }) {
       <Card>
         <EmptyState icon={ScrollText} title="No logs yet">
           Emit structured logs from your agent to see them here.
-          <pre className="mt-3 inline-block rounded-lg bg-gray-100 p-3 text-left text-xs dark:bg-gray-800">
-            {`from splyntra import log\nlog.info("charged card", attrs={"amount": 42})`}
-          </pre>
         </EmptyState>
       </Card>
     );
