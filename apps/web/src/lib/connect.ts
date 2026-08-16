@@ -26,7 +26,7 @@ export const FRAMEWORKS: Framework[] = [
 
 /** The public ingest endpoint an external source posts to (NOT the dashboard proxy). */
 export function ingestBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4318";
+  const raw = "https://ingest.splyntra.com";
   return raw.replace(/\/+$/, "");
 }
 
@@ -38,6 +38,21 @@ export function codeSnippets(framework: string, project: string, guard = false):
   const proj = project || "my-app";
   const pyGuard = guard ? `    guard="block",   # block injection / redact secrets pre-flight\n` : "";
   const tsGuard = guard ? `  guard: "block",    // block injection / redact secrets pre-flight\n` : "";
+
+  // If the resolved endpoint looks like a local dev server, add a short
+  // explanatory comment in the generated snippets so users know to set the
+  // NEXT_PUBLIC_API_URL (at build/deploy time) to their deployed collector URL.
+  const isLocal = endpoint.includes("localhost") || endpoint.includes("127.0.0.1");
+  const pyEndpointComment = isLocal
+    ? `    # Local/self-hosted dev endpoint: ${endpoint}\n    # For deployed usage, set NEXT_PUBLIC_API_URL to your deployed collector URL before building the dashboard\n`
+    : "";
+  const tsEndpointComment = isLocal
+    ? `  // Local/self-hosted dev endpoint: ${endpoint}\n  // For deployed usage, set NEXT_PUBLIC_API_URL to your deployed collector URL before building the dashboard\n`
+    : "";
+
+  const pyEndpoint = `${pyEndpointComment}    endpoint="${endpoint}",\n`;
+  const tsEndpoint = `${tsEndpointComment}  endpoint: "${endpoint}",\n`;
+
   return {
     python:
       `# pip install splyntra\n` +
@@ -45,7 +60,7 @@ export function codeSnippets(framework: string, project: string, guard = false):
       `Splyntra(\n` +
       `    api_key="YOUR_INGEST_KEY",\n` +
       `    project="${proj}",\n` +
-      `    endpoint="${endpoint}",\n` +
+      pyEndpoint +
       `    instrument=("${framework}",),\n` +
       pyGuard +
       `)\n` +
@@ -56,7 +71,7 @@ export function codeSnippets(framework: string, project: string, guard = false):
       `new Splyntra({\n` +
       `  apiKey: "YOUR_INGEST_KEY",\n` +
       `  project: "${proj}",\n` +
-      `  endpoint: "${endpoint}",\n` +
+      tsEndpoint +
       `  instrument: ["${framework}"],\n` +
       tsGuard +
       `});\n` +
