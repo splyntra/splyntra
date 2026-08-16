@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.6.2](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.1...dashboard-v3.6.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* Merge pull request [#44](https://github.com/splyntra/splyntra/issues/44) from emre155/fix/api-error-body-snippet ([c42b575](https://github.com/splyntra/splyntra/commit/c42b57573303efbe9dc1fde1d00e47a8cbaa0214))
+* Merge pull request [#45](https://github.com/splyntra/splyntra/issues/45) from anandkr47/fix/licensing ([16903aa](https://github.com/splyntra/splyntra/commit/16903aa1b4c598967c5c13eb7290223abe1944a4))
+* update connect endpoint url ([16903aa](https://github.com/splyntra/splyntra/commit/16903aa1b4c598967c5c13eb7290223abe1944a4))
+* update connect endpoint url ([ae0767d](https://github.com/splyntra/splyntra/commit/ae0767d578097c48d89962aa6c9c4a30bff128e7))
+* **web:** include response body snippet in apiGet and apiSend error messages ([6575d6a](https://github.com/splyntra/splyntra/commit/6575d6a4089dc9d77abe1c0793df6b2d1f8ad62f)), closes [#43](https://github.com/splyntra/splyntra/issues/43)
+* **web:** include truncated response error body in apiGet and apiSend failures ([c42b575](https://github.com/splyntra/splyntra/commit/c42b57573303efbe9dc1fde1d00e47a8cbaa0214))
+
 ## [3.6.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.0...dashboard-v3.6.1) (2026-08-16)
 
 
