@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.6.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.0...dashboard-v3.6.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* fix typo texts ([7ef113a](https://github.com/splyntra/splyntra/commit/7ef113a5fce9be2c1e8ebd9dd20409284e8b24c1))
+* fix typo texts ([26c6c95](https://github.com/splyntra/splyntra/commit/26c6c95ac614f6600ce5e5a099187a996424623a))
+* Merge pull request [#38](https://github.com/splyntra/splyntra/issues/38) from anandkr47/fix/licensing ([7ef113a](https://github.com/splyntra/splyntra/commit/7ef113a5fce9be2c1e8ebd9dd20409284e8b24c1))
+
 ## [3.6.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.5.1...dashboard-v3.6.0) (2026-08-16)
 
 
