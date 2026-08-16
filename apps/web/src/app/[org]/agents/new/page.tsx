@@ -73,6 +73,8 @@ export default function NewAgentPage() {
   const [alerts, setAlerts] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ agentId: string; apiKey: string } | null>(null);
+  // selected language for the connect snippet
+  const [lang, setLang] = useState<"python" | "typescript">("python");
 
   const frameworks = useMemo(() => byCategory("framework"), []);
   const providers = useMemo(() => byCategory("provider"), []);
@@ -248,10 +250,20 @@ export default function NewAgentPage() {
                 </div>
                 <div>
                   <div className="mb-1 flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Connect code (Python)</h4>
-                    <button onClick={() => copy(snippet.python)} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"><Copy className="h-3.5 w-3.5" /> Copy</button>
+                    <div className="flex items-center gap-3">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Connect code</h4>
+                      <div className="inline-flex rounded-md border bg-white p-0.5 dark:bg-gray-900">
+                        <button type="button" onClick={() => setLang("python")} className={`px-2.5 py-1 text-xs font-medium ${lang === "python" ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "text-gray-600 hover:bg-gray-50 dark:text-gray-300"}`}>
+                          Python
+                        </button>
+                        <button type="button" onClick={() => setLang("typescript")} className={`px-2.5 py-1 text-xs font-medium ${lang === "typescript" ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "text-gray-600 hover:bg-gray-50 dark:text-gray-300"}`}>
+                          TypeScript
+                        </button>
+                      </div>
+                    </div>
+                    <button onClick={() => copy(lang === "python" ? snippet.python : snippet.typescript)} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"><Copy className="h-3.5 w-3.5" /> Copy</button>
                   </div>
-                  <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-[12px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-200"><code>{snippet.python}</code></pre>
+                  <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-[12px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-200"><code>{lang === "python" ? snippet.python : snippet.typescript}</code></pre>
                 </div>
                 <Link href={`/agents/${encodeURIComponent(result.agentId)}`} className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900">
                   Open agent dashboard <ArrowRight className="h-4 w-4" />
