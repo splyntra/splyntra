@@ -9,8 +9,8 @@ from __future__ import annotations
 import time
 from typing import Collection
 
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import StatusCode
 
 
@@ -36,7 +36,7 @@ def _wrap(cls, method, tracer, span_type, name):
             span.end()
             raise
 
-    wrapper.__splyntra_wrapped = True
+    setattr(wrapper, "__splyntra_wrapped", True)
     setattr(cls, method, wrapper)
     return orig
 

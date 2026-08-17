@@ -6,7 +6,7 @@ from __future__ import annotations
 from statistics import mean
 from typing import Dict, List
 
-from . import SCORERS, PLUGIN_SCORERS
+from . import PLUGIN_SCORERS, SCORERS
 
 # Default scorers when the caller doesn't specify any.
 DEFAULT_SCORERS = ["exact_match", "rule_based"]

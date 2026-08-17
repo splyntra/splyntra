@@ -10,15 +10,14 @@ from __future__ import annotations
 
 import os
 import re
+
 from .models import Detection
 
 # The prompt-injection classifier. In production it is exported to ONNX and baked
 # into the image at build (see scripts/bundle_injection_onnx.py) so detection runs
 # offline; SPLYNTRA_INJECTION_MODEL_DIR points at that baked directory.
 _INJECTION_MODEL_ID = "protectai/deberta-v3-base-prompt-injection-v2"
-_INJECTION_MODEL_DIR = os.getenv(
-    "SPLYNTRA_INJECTION_MODEL_DIR", "/app/models/injection-onnx"
-)
+_INJECTION_MODEL_DIR = os.getenv("SPLYNTRA_INJECTION_MODEL_DIR", "/app/models/injection-onnx")
 
 
 # Heuristic patterns for common injection techniques

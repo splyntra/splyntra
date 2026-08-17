@@ -9,8 +9,8 @@ from __future__ import annotations
 import time
 from typing import Collection
 
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import StatusCode
 
 
@@ -81,7 +81,7 @@ class GoogleADKInstrumentor(BaseInstrumentor):
             if orig is None or getattr(orig, "__splyntra_wrapped", False):
                 continue
             wrapped = make(orig, is_async)
-            wrapped.__splyntra_wrapped = True
+            setattr(wrapped, "__splyntra_wrapped", True)
             setattr(Runner, method, wrapped)
             self._orig[method] = orig
 

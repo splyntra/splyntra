@@ -23,8 +23,7 @@ def exact_match(item: Item) -> float:
     """1.0 iff actual equals expected (trimmed, case-insensitive)."""
     return (
         1.0
-        if _s(item.get("actual")).strip().lower()
-        == _s(item.get("expected")).strip().lower()
+        if _s(item.get("actual")).strip().lower() == _s(item.get("expected")).strip().lower()
         else 0.0
     )
 

@@ -6,8 +6,8 @@ from __future__ import annotations
 import time
 from typing import Collection
 
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import StatusCode
 
 
@@ -77,6 +77,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             is_stream = kwargs.get("stream", False)
             # Inline guardrail pre-flight (run the blocking check off the event loop).
             import asyncio
+
             from .. import guard as _guard
 
             await asyncio.get_event_loop().run_in_executor(

@@ -16,11 +16,11 @@ import nats
 from nats.aio.client import Client as NATS
 from nats.js.api import ConsumerConfig, DeliverPolicy
 
+from detectors.injection import InjectionDetector
 from detectors.models import Detection
+from detectors.moderation import ModerationDetector
 from detectors.pii import PIIDetector
 from detectors.secrets import SecretDetector
-from detectors.injection import InjectionDetector
-from detectors.moderation import ModerationDetector
 from detectors.tool_guard import DangerousToolCallDetector
 
 logger = logging.getLogger(__name__)
@@ -141,9 +141,7 @@ class DetectorConsumer:
             loop.run_in_executor(None, self.secrets.scan, content),
             loop.run_in_executor(None, self.injection.scan, content),
             loop.run_in_executor(None, self.moderation.scan, raw_output or content),
-            loop.run_in_executor(
-                None, self.tool_guard.scan, span_type, tool_name, content
-            ),
+            loop.run_in_executor(None, self.tool_guard.scan, span_type, tool_name, content),
         ]
         if self.pii is not None:
             tasks.append(loop.run_in_executor(None, self.pii.scan, content))

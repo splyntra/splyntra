@@ -7,8 +7,8 @@ an identical, correctly-authenticated exporter.
 
 from __future__ import annotations
 
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 __all__ = ["make_otlp_exporter", "make_otlp_log_exporter"]
 

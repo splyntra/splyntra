@@ -7,6 +7,7 @@ import re
 
 from presidio_analyzer import AnalyzerEngine, RecognizerResult
 from presidio_analyzer.nlp_engine import NlpEngineProvider
+
 from .models import Detection
 
 # Use the small spaCy model — bundled at build time (see Dockerfile) so there is

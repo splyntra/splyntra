@@ -61,11 +61,7 @@ def resolve(
                 status_code=400,
                 detail="service token requires a valid X-Splyntra-Org-Id",
             )
-        project = (
-            project_header
-            if (project_header and _UUID_RE.match(project_header))
-            else ""
-        )
+        project = project_header if (project_header and _UUID_RE.match(project_header)) else ""
         return Tenant(org_id=org_header, project_id=project)
 
     if os.getenv("ENV") == "development" and key == "splyntra_dev_key":

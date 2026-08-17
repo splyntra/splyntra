@@ -1,8 +1,12 @@
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/291030557?s=200" alt="Splyntra" width="64" />
+  <img src="https://avatars.githubusercontent.com/u/291030557?s=200" alt="Splyntra" width="80" />
 </p>
 
-# @splyntra/sdk
+<h1 align="center">@splyntra/sdk</h1>
+
+<p align="center"><strong>Unified observability and security for AI agents in TypeScript & JavaScript.</strong></p>
+
+<p align="center">Built on OpenTelemetry, with real-time risk scoring for leaked secrets, PII exposure, and prompt injection.</p>
 
 <p align="center">
   <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
@@ -10,11 +14,13 @@
   <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
 </p>
 
-[![npm](https://img.shields.io/npm/v/@splyntra/sdk)](https://www.npmjs.com/package/@splyntra/sdk)
-[![Docs](https://img.shields.io/badge/docs-docs.splyntra.com-blue)](https://docs.splyntra.com)
-[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](./LICENSE)
+<p align="center">
+  <a href="https://www.npmjs.com/package/@splyntra/sdk"><img src="https://img.shields.io/npm/v/@splyntra/sdk" alt="npm" /></a>
+  <a href="https://docs.splyntra.com"><img src="https://img.shields.io/badge/docs-docs.splyntra.com-blue" alt="Docs" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green.svg" alt="License" /></a>
+</p>
 
-Unified observability and security for AI agents in TypeScript and JavaScript. Built on OpenTelemetry, the Splyntra SDK captures every agent step, LLM call, and tool invocation as a structured trace — enriched with real-time risk scoring for leaked secrets, PII exposure, and prompt injection.
+---
 
 Compatible with Node.js ≥ 18, TypeScript or plain JavaScript, ESM or CommonJS.
 

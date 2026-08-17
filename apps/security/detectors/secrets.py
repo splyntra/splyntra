@@ -139,9 +139,7 @@ class SecretDetector:
                     if entropy < _MIN_ENTROPY:
                         continue  # low-entropy → placeholder/false positive, skip
                     # Scale confidence with entropy above the floor.
-                    confidence = round(
-                        min(0.95, 0.6 + (entropy - _MIN_ENTROPY) * 0.15), 2
-                    )
+                    confidence = round(min(0.95, 0.6 + (entropy - _MIN_ENTROPY) * 0.15), 2)
                 detections.append(
                     Detection(
                         detector="secrets",

@@ -1,17 +1,26 @@
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/291030557?s=200" alt="Splyntra" width="64" />
+  <img src="https://avatars.githubusercontent.com/u/291030557?s=200" alt="Splyntra" width="80" />
 </p>
 
-# @splyntra/dashboard
+<h1 align="center">@splyntra/dashboard</h1>
 
-[![npm](https://img.shields.io/npm/v/@splyntra/dashboard)](https://www.npmjs.com/package/@splyntra/dashboard)
-[![License](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](../../LICENSE)
+<p align="center"><strong>The Splyntra Open Dashboard</strong></p>
 
-The Splyntra open dashboard — a composable Next.js application providing trace
-visualization, structured logs, agent/MCP/platform metrics, cost analytics,
-evaluation results (leaderboard + regression), a security incident feed, alerts,
-and team management with RBAC. Every table supports search, sortable columns,
-selectable page size, and one-click Excel export.
+<p align="center">Unified trace visualization, logs, agent/MCP/platform metrics, cost analytics, evaluations, and security alerts.</p>
+
+<p align="center">
+  <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
+  <a href="https://app.splyntra.com"><strong>Cloud Dashboard</strong></a> ·
+  <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@splyntra/dashboard"><img src="https://img.shields.io/npm/v/@splyntra/dashboard" alt="npm" /></a>
+  <a href="https://docs.splyntra.com"><img src="https://img.shields.io/badge/docs-docs.splyntra.com-blue" alt="Docs" /></a>
+  <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg" alt="License" /></a>
+</p>
+
+---
 
 Published as **source** (not a prebuilt library). Consumers compose it with their overlays and run `next build`.
 

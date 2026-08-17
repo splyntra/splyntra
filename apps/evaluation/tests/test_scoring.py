@@ -7,17 +7,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scorers import (  # noqa: E402
+    cost,
     exact_match,
-    rule_based,
-    tool_call_success,
-    tool_call_precision,
-    precision_token_overlap,
-    recall_token_overlap,
     groundedness,
     latency,
-    cost,
+    precision_token_overlap,
+    recall_token_overlap,
+    rule_based,
+    tool_call_precision,
+    tool_call_success,
 )
-from scorers.engine import score_items, is_regression  # noqa: E402
+from scorers.engine import is_regression, score_items  # noqa: E402
 
 
 def test_exact_match():
@@ -45,10 +45,7 @@ def test_groundedness_hallucination_proxy():
     # No context → nothing to contradict → 1.0 (use the LLM faithfulness judge instead).
     assert groundedness({"actual": "anything", "context": ""}) == 1.0
     # Context as a list is joined.
-    assert (
-        groundedness({"actual": "cats purr", "context": ["cats purr", "dogs bark"]})
-        == 1.0
-    )
+    assert groundedness({"actual": "cats purr", "context": ["cats purr", "dogs bark"]}) == 1.0
 
 
 def test_tool_call_success():
@@ -61,10 +58,7 @@ def test_tool_call_success():
         )
         == 1.0
     )
-    assert (
-        tool_call_success({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]})
-        == 0.5
-    )
+    assert tool_call_success({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]}) == 0.5
     assert tool_call_success({"expected_tool_calls": [], "tool_calls": []}) == 1.0
 
 
@@ -90,12 +84,10 @@ def test_precision_recall_token_overlap():
 
 def test_tool_call_precision():
     assert (
-        tool_call_precision({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]})
-        == 1.0
+        tool_call_precision({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]}) == 1.0
     )  # all actual expected
     assert (
-        tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": ["a", "b"]})
-        == 0.5
+        tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": ["a", "b"]}) == 0.5
     )  # b unexpected
     assert (
         tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": []}) == 1.0
