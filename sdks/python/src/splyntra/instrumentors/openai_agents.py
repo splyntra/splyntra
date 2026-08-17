@@ -69,6 +69,7 @@ def _agent_name(args, kwargs) -> str:
 
 def _wrap_run(tracer, original, is_async: bool):
     if is_async:
+
         @functools.wraps(original)
         async def awrapper(*args, **kwargs):
             name = _agent_name(args, kwargs)

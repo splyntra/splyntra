@@ -34,7 +34,9 @@ class ModerationDetector:
     """Output toxicity / harm detector. Non-blocking (BETA)."""
 
     def __init__(self):
-        self._patterns = {cat: re.compile(p, re.IGNORECASE) for cat, p in _CATEGORIES.items()}
+        self._patterns = {
+            cat: re.compile(p, re.IGNORECASE) for cat, p in _CATEGORIES.items()
+        }
         self._model = None  # lazy-loaded detoxify pipeline if available
 
     def scan(self, text: str) -> list[Detection]:

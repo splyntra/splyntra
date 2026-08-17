@@ -141,7 +141,9 @@ class DetectorConsumer:
             loop.run_in_executor(None, self.secrets.scan, content),
             loop.run_in_executor(None, self.injection.scan, content),
             loop.run_in_executor(None, self.moderation.scan, raw_output or content),
-            loop.run_in_executor(None, self.tool_guard.scan, span_type, tool_name, content),
+            loop.run_in_executor(
+                None, self.tool_guard.scan, span_type, tool_name, content
+            ),
         ]
         if self.pii is not None:
             tasks.append(loop.run_in_executor(None, self.pii.scan, content))
@@ -180,7 +182,10 @@ class DetectorConsumer:
 
             logger.info(
                 "Detections found: trace=%s span=%s count=%d risk=%d",
-                trace_id, span_id, len(detections), risk_score,
+                trace_id,
+                span_id,
+                len(detections),
+                risk_score,
             )
 
     def _compute_risk(self, detections: list[Detection]) -> int:

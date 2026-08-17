@@ -44,7 +44,10 @@ def plan_node(state: State) -> State:
 
 
 def answer_node(state: State) -> State:
-    return {**state, "answer": f"Summary for '{state['query']}' based on {state['plan']}"}
+    return {
+        **state,
+        "answer": f"Summary for '{state['query']}' based on {state['plan']}",
+    }
 
 
 def build_graph():

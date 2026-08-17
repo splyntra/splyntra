@@ -39,7 +39,12 @@ class SplyntraBlocked(Exception):
 _cfg: dict[str, Any] = {"mode": "off", "fail_open": True, "endpoint": None, "api_key": None}
 
 
-def configure(mode: str = "off", fail_open: bool = True, endpoint: str | None = None, api_key: str | None = None) -> None:
+def configure(
+    mode: str = "off",
+    fail_open: bool = True,
+    endpoint: str | None = None,
+    api_key: str | None = None,
+) -> None:
     """Configure the guard. Called by :class:`splyntra.Splyntra` at init."""
     _cfg.update(
         mode=mode or "off",
@@ -81,7 +86,9 @@ def enforce(content: str, direction: str = "input") -> str:
     if action == "allow":
         return content
     if mode == "monitor":
-        logger.warning("guard verdict (monitor, not enforced): action=%s reasons=%s", action, reasons)
+        logger.warning(
+            "guard verdict (monitor, not enforced): action=%s reasons=%s", action, reasons
+        )
         return content
     # block mode: never forward flagged content (injection or secret) upstream.
     raise SplyntraBlocked(reasons)

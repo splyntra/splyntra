@@ -37,9 +37,13 @@ def main(argv=None) -> int:
     run = eval_sub.add_parser("run", help="score results against a dataset")
     run.add_argument("--dataset", required=True, help="dataset id")
     run.add_argument("--file", required=True, help="JSONL of {input, expected, actual, ...}")
-    run.add_argument("--scorers", default="", help="comma-separated (default: exact_match,rule_based)")
+    run.add_argument(
+        "--scorers", default="", help="comma-separated (default: exact_match,rule_based)"
+    )
     run.add_argument("--gate", action="store_true", help="exit non-zero on regression")
-    run.add_argument("--set-baseline", action="store_true", help="store this run as the dataset baseline")
+    run.add_argument(
+        "--set-baseline", action="store_true", help="store this run as the dataset baseline"
+    )
 
     args = parser.parse_args(argv)
 

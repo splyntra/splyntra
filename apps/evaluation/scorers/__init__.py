@@ -21,7 +21,12 @@ def _s(v) -> str:
 
 def exact_match(item: Item) -> float:
     """1.0 iff actual equals expected (trimmed, case-insensitive)."""
-    return 1.0 if _s(item.get("actual")).strip().lower() == _s(item.get("expected")).strip().lower() else 0.0
+    return (
+        1.0
+        if _s(item.get("actual")).strip().lower()
+        == _s(item.get("expected")).strip().lower()
+        else 0.0
+    )
 
 
 def rule_based(item: Item) -> float:
@@ -107,9 +112,41 @@ def groundedness(item: Item) -> float:
 
 
 _STOPWORDS = {
-    "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "be", "to",
-    "of", "in", "on", "for", "with", "as", "at", "by", "it", "this", "that", "i",
-    "you", "he", "she", "they", "we", "not", "no", "yes", "do", "does", "did",
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "to",
+    "of",
+    "in",
+    "on",
+    "for",
+    "with",
+    "as",
+    "at",
+    "by",
+    "it",
+    "this",
+    "that",
+    "i",
+    "you",
+    "he",
+    "she",
+    "they",
+    "we",
+    "not",
+    "no",
+    "yes",
+    "do",
+    "does",
+    "did",
 }
 
 
@@ -194,12 +231,27 @@ def scorer_catalog() -> list:
     """Metadata for every available scorer (deterministic + loaded plugins), for
     the dashboard's scorer picker: name, one-line description, kind, and whether
     the scorer needs a `context` field."""
+
     def _desc(fn) -> str:
         return ((fn.__doc__ or "").strip().split("\n")[0]) or ""
 
     out = []
     for name, fn in sorted(SCORERS.items()):
-        out.append({"name": name, "description": _desc(fn), "kind": "deterministic", "needs_context": name in CONTEXT_SCORERS})
+        out.append(
+            {
+                "name": name,
+                "description": _desc(fn),
+                "kind": "deterministic",
+                "needs_context": name in CONTEXT_SCORERS,
+            }
+        )
     for name, fn in sorted(PLUGIN_SCORERS.items()):
-        out.append({"name": name, "description": _desc(fn) or "Commercial LLM-based scorer", "kind": "plugin", "needs_context": name in CONTEXT_SCORERS})
+        out.append(
+            {
+                "name": name,
+                "description": _desc(fn) or "Commercial LLM-based scorer",
+                "kind": "plugin",
+                "needs_context": name in CONTEXT_SCORERS,
+            }
+        )
     return out

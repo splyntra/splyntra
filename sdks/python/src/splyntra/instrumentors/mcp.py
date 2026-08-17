@@ -71,13 +71,17 @@ class MCPInstrumentor(BaseInstrumentor):
         # tool call can be attributed to its MCP server (per-server monitoring).
         orig_init = getattr(ClientSession, "initialize", None)
         if orig_init is not None and not getattr(orig_init, "__splyntra_wrapped", False):
+
             async def patched_init(self_session, *a, **k):
                 result = await orig_init(self_session, *a, **k)
                 try:
-                    self_session.__splyntra_server = getattr(getattr(result, "serverInfo", None), "name", "") or ""
+                    self_session.__splyntra_server = (
+                        getattr(getattr(result, "serverInfo", None), "name", "") or ""
+                    )
                 except Exception:
                     pass
                 return result
+
             patched_init.__splyntra_wrapped = True
             ClientSession.initialize = patched_init
             self._orig_init = orig_init

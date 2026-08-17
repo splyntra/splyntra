@@ -36,7 +36,14 @@ class CrewAIInstrumentor(BaseInstrumentor):
         tracer = trace.get_tracer("splyntra.crewai")
 
         self._patch(tracer, "crewai", "Crew", ("kickoff", "kickoff_async"), "agent", _crew_name)
-        self._patch(tracer, "crewai", "Task", ("execute_sync", "execute_async", "execute"), "step", _task_name)
+        self._patch(
+            tracer,
+            "crewai",
+            "Task",
+            ("execute_sync", "execute_async", "execute"),
+            "step",
+            _task_name,
+        )
         self._patch(tracer, "crewai.tools", "BaseTool", ("run", "_run"), "tool_call", _tool_name)
 
     def _patch(self, tracer, module_path, cls_name, methods, span_type, namer):
@@ -88,6 +95,7 @@ def _attrs(span_type: str, name: str) -> dict:
 
 def _wrap(tracer, original, span_type: str, namer, is_async: bool):
     if is_async:
+
         @functools.wraps(original)
         async def awrapper(self, *args, **kwargs):
             with tracer.start_as_current_span(

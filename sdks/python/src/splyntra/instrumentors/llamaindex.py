@@ -20,7 +20,9 @@ def _wrap(cls, method, tracer, span_type, name):
         return None
 
     def wrapper(self_obj, *args, **kw):
-        span = tracer.start_span(name, kind=trace.SpanKind.INTERNAL, attributes={"splyntra.span.type": span_type})
+        span = tracer.start_span(
+            name, kind=trace.SpanKind.INTERNAL, attributes={"splyntra.span.type": span_type}
+        )
         start = time.time()
         try:
             result = orig(self_obj, *args, **kw)

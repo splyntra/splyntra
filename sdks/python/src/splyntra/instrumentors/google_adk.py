@@ -28,13 +28,22 @@ class GoogleADKInstrumentor(BaseInstrumentor):
 
         def make(orig, is_async):
             if is_async:
+
                 async def awrapper(self_runner, *args, **kw):
-                    span = tracer.start_span("adk.run", kind=trace.SpanKind.INTERNAL,
-                                             attributes={"splyntra.span.type": "agent", "splyntra.framework": "google-adk"})
+                    span = tracer.start_span(
+                        "adk.run",
+                        kind=trace.SpanKind.INTERNAL,
+                        attributes={
+                            "splyntra.span.type": "agent",
+                            "splyntra.framework": "google-adk",
+                        },
+                    )
                     start = time.time()
                     try:
                         result = await orig(self_runner, *args, **kw)
-                        span.set_attribute("splyntra.tool.duration_ms", (time.time() - start) * 1000)
+                        span.set_attribute(
+                            "splyntra.tool.duration_ms", (time.time() - start) * 1000
+                        )
                         span.set_status(StatusCode.OK)
                         span.end()
                         return result
@@ -43,11 +52,15 @@ class GoogleADKInstrumentor(BaseInstrumentor):
                         span.record_exception(e)
                         span.end()
                         raise
+
                 return awrapper
 
             def wrapper(self_runner, *args, **kw):
-                span = tracer.start_span("adk.run", kind=trace.SpanKind.INTERNAL,
-                                         attributes={"splyntra.span.type": "agent", "splyntra.framework": "google-adk"})
+                span = tracer.start_span(
+                    "adk.run",
+                    kind=trace.SpanKind.INTERNAL,
+                    attributes={"splyntra.span.type": "agent", "splyntra.framework": "google-adk"},
+                )
                 start = time.time()
                 try:
                     result = orig(self_runner, *args, **kw)
@@ -60,6 +73,7 @@ class GoogleADKInstrumentor(BaseInstrumentor):
                     span.record_exception(e)
                     span.end()
                     raise
+
             return wrapper
 
         for method, is_async in (("run", False), ("run_async", True)):

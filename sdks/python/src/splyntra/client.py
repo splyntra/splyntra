@@ -81,7 +81,9 @@ class Splyntra:
         # Configure the inline guardrail (used by the instrumentors' pre-flight hook).
         from splyntra import guard as _guard
 
-        _guard.configure(mode=guard, fail_open=guard_fail_open, endpoint=self.endpoint, api_key=self._api_key)
+        _guard.configure(
+            mode=guard, fail_open=guard_fail_open, endpoint=self.endpoint, api_key=self._api_key
+        )
 
         if instrument:
             from splyntra.instrumentors import instrument as _instrument

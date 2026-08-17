@@ -4,7 +4,7 @@ Splyntra Security Demo
 =======================
 Demonstrates how Splyntra detects security issues in agent traces:
   - Secret leakage (AWS keys, API tokens)
-  - PII exposure (emails, phone numbers)  
+  - PII exposure (emails, phone numbers)
   - Prompt injection attempts
 
 Prerequisites:
@@ -42,7 +42,7 @@ def handle_refund(customer_query: str) -> str:
     customer = lookup_customer(plan["customer_id"])
 
     # Step 3: Process refund via payments API (leaks credentials)
-    result = process_payment(customer["email"], plan["amount"])
+    _ = process_payment(customer["email"], plan["amount"])
 
     return f"Refund of ${plan['amount']} processed for {customer['name']}"
 
@@ -83,7 +83,12 @@ def process_payment(email: str, amount: float) -> dict:
         "aws_secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         "stripe_key": "sk_test_FAKE_EXAMPLE_KEY_FOR_DEMO",
     }
-    return {"status": "refunded", "amount": amount, "tx_id": "tx_abc123"}
+    return {
+        "status": "refunded",
+        "amount": amount,
+        "tx_id": "tx_abc123",
+        "config_keys": list(config.keys()),
+    }
 
 
 @trace_agent(name="code_agent", workflow="code_review")

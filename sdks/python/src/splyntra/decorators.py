@@ -78,10 +78,13 @@ def _make_decorator(
             span.set_status(StatusCode.OK)
 
         if inspect.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs) -> Any:
                 tracer = trace.get_tracer("splyntra")
-                with tracer.start_as_current_span(span_name, kind=kind, attributes=attributes) as span:
+                with tracer.start_as_current_span(
+                    span_name, kind=kind, attributes=attributes
+                ) as span:
                     _set_input(span, args, kwargs)
                     start = time.perf_counter()
                     try:

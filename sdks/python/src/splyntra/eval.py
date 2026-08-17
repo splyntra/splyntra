@@ -38,18 +38,27 @@ def _post(path: str, payload: dict, api_key: Optional[str]) -> dict:
         f"{_endpoint()}{path}",
         data=data,
         method="POST",
-        headers={"Authorization": f"Bearer {_api_key(api_key)}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {_api_key(api_key)}",
+            "Content-Type": "application/json",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"eval request failed ({e.code}): {e.read().decode('utf-8', 'ignore')}") from e
+        raise RuntimeError(
+            f"eval request failed ({e.code}): {e.read().decode('utf-8', 'ignore')}"
+        ) from e
 
 
-def push_dataset(name: str, items: List[dict], description: str = "", api_key: Optional[str] = None) -> dict:
+def push_dataset(
+    name: str, items: List[dict], description: str = "", api_key: Optional[str] = None
+) -> dict:
     """Create/version a dataset. ``items`` are ``{input, expected_output, expected_tool_calls?}``."""
-    return _post("/v1/datasets", {"name": name, "description": description, "items": items}, api_key)
+    return _post(
+        "/v1/datasets", {"name": name, "description": description, "items": items}, api_key
+    )
 
 
 def run(
