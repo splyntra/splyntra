@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.7.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.7.0...dashboard-v3.7.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* update delete edit text to icon usage ([1295b42](https://github.com/splyntra/splyntra/commit/1295b42c75a0a62062f3877281a309d9f4cf4511))
+* update delete edit text to icon usage ([1295b42](https://github.com/splyntra/splyntra/commit/1295b42c75a0a62062f3877281a309d9f4cf4511))
+* update delete edit text to icon usage ([5b3083e](https://github.com/splyntra/splyntra/commit/5b3083ef528ed76bc2313bcbfe8aa93a2f10be81))
+
 ## [3.7.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.3...dashboard-v3.7.0) (2026-08-17)
 
 
