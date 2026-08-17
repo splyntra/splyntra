@@ -71,8 +71,13 @@ Response: `{"accepted": N, "spans": M, "timestamp": "..."}`.
 | GET    | `/v1/security/incidents?detector=&severity=&since=&limit=&offset=` | Org/project-wide detection feed → `{incidents, total, limit, offset}`. `severity` is a floor (`low`\|`medium`\|`high`\|`critical`). |
 | GET    | `/v1/metrics?window=&interval=` | Time-series: latency p50/p95, throughput, error/success rate, tokens, cost. |
 | GET    | `/v1/projects`          | Projects in your org. |
+| GET    | `/v1/pricing`           | List configured model pricing table and unpriced models seen at ingest. |
+| PUT    | `/v1/pricing`           | Upsert per-1k-token pricing for a model (`{model, prompt_per_1k, completion_per_1k}`). Admin/member scope. |
+| DELETE | `/v1/pricing/{model}`   | Remove a model pricing override. Admin/member scope. |
+| GET    | `/v1/budgets`           | List project monthly budget limits, current spend, and forecast. |
+| PUT    | `/v1/budgets`           | Upsert project monthly budget limit (`{project_id?, monthly_limit_usd}`). Admin/member scope. |
 
-All accept an optional `?project_id=` filter.
+All accept an optional `?project_id=` filter where applicable.
 
 ## Integrations (webhook ingestion)
 

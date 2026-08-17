@@ -38,12 +38,19 @@ npm run dev                        # http://localhost:3000
 
 | Variable          | Default                          | Description                         |
 |-------------------|----------------------------------|-------------------------------------|
-| `NEXTAUTH_SECRET` | —                                | Secret for NextAuth.js session encryption |
-| `NEXTAUTH_URL`    | `http://localhost:3000`          | Canonical app URL                   |
-| `POSTGRES_DSN`    | —                                | PostgreSQL connection string         |
-| `COLLECTOR_URL`   | `http://localhost:4318`          | Splyntra Collector base URL         |
-| `EVAL_URL`        | `http://localhost:8002`          | Evaluation service base URL         |
-| `SPLYNTRA_API_KEY`| `splyntra_dev_key` (dev only)    | Collector key the dashboard proxies with; dev fallback is rejected outside `development` (fail-closed) |
+| `COLLECTOR_URL`   | `http://localhost:4318`          | Splyntra Collector base URL used by server-side BFF proxy (`/api/v1/*`). In production, set to your collector host (e.g. `https://ingest.splyntra.com` or internal service DNS). |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:4318`      | Fallback API URL if `COLLECTOR_URL` is unset. |
+| `EVAL_URL`        | `http://localhost:8002`          | Evaluation service base URL.        |
+| `POSTGRES_DSN`    | —                                | PostgreSQL connection string (metadata & user/team store). |
+| `NEXTAUTH_URL`    | `http://localhost:3000`          | Canonical app URL (e.g. `https://app.splyntra.com`). |
+| `AUTH_SECRET` / `NEXTAUTH_SECRET` | —                | Secret for Auth.js/NextAuth session token encryption. |
+| `SPLYNTRA_API_KEY`| `splyntra_dev_key` (dev only)    | Collector key the dashboard proxies with; dev fallback is rejected outside `development` (fail-closed). |
+| `COLLECTOR_SERVICE_TOKEN` | —                        | Shared secret for trusted multi-tenant BFF → collector communication. |
+
+## Production Deployment Notes
+
+- **Collector Proxying (`/api/v1/*`)**: Next.js proxies API requests dynamically to `COLLECTOR_URL` on each request rather than baking it in at build time. Ensure `COLLECTOR_URL` is set in your container/hosting environment.
+- **Data Caching**: TanStack Query is configured with sensible cache lifecycles (30s stale time). State mutations (e.g., updating model pricing, budgets, alerts, API keys) automatically invalidate query caches on demand without continuous polling loops.
 
 ## Scripts
 

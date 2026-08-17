@@ -4,7 +4,14 @@
 
 # Splyntra Python SDK
 
+<p align="center">
+  <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
+  <a href="https://app.splyntra.com"><strong>Cloud Dashboard</strong></a> ·
+  <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
+</p>
+
 [![PyPI](https://img.shields.io/pypi/v/splyntra)](https://pypi.org/project/splyntra/)
+[![Docs](https://img.shields.io/badge/docs-docs.splyntra.com-blue)](https://docs.splyntra.com)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](./LICENSE)
 
 Unified observability and security for AI agents in Python. Built on OpenTelemetry, the Splyntra SDK captures every agent step, LLM call, and tool invocation as a structured trace — enriched with real-time risk scoring for leaked secrets, PII exposure, prompt injection, content moderation, and unsafe tool calls. It also ships trace-correlated structured logging, an inline block/redact guardrail, evaluation, and governance helpers.
@@ -28,12 +35,13 @@ Available extras: `langgraph`, `openai`, `openai-agents`, `crewai`
 Initialize once at application startup. The `instrument` parameter enables automatic tracing for supported frameworks — no per-call changes required.
 
 ```python
+import os
 from splyntra import Splyntra
 
 Splyntra(
-    api_key="splyntra_dev_key",
+    api_key=os.getenv("SPLYNTRA_API_KEY", "splyntra_dev_key"),
     project="my-app",
-    endpoint="http://localhost:4318",
+    endpoint=os.getenv("SPLYNTRA_ENDPOINT", "https://ingest.splyntra.com"),  # or http://localhost:4318 for local dev
     framework="langgraph",
     instrument=("langgraph", "openai"),
 )

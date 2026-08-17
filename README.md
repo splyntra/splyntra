@@ -9,6 +9,13 @@
 <p align="center">See what your agents did and whether it was safe — in one view.</p>
 
 <p align="center">
+  <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
+  <a href="https://app.splyntra.com"><strong>Cloud App</strong></a> ·
+  <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://docs.splyntra.com"><img src="https://img.shields.io/badge/docs-docs.splyntra.com-blue" alt="Docs" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/go.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/go.yml/badge.svg" alt="Go" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/python.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/python.yml/badge.svg" alt="Python" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/web.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/web.yml/badge.svg" alt="Web" /></a>
@@ -21,23 +28,23 @@
 ## Quick Start
 
 ```bash
-# Start the full stack (dashboard, collector, detectors, eval, and infra)
+# Start the full stack locally (dashboard, collector, detectors, eval, and infra)
 docker compose up -d
 ```
 
-| Service | URL | Notes |
-|---------|-----|-------|
-| Dashboard | http://localhost:3000 | Traces, logs, evals, security, cost |
-| Collector (OTLP) | http://localhost:4318 | `/v1/traces`, `/v1/logs`, ingest + query API |
+| Service | Local Dev URL | Managed Cloud / Production | Notes |
+|---------|---------------|----------------------------|-------|
+| Dashboard | http://localhost:3000 | https://app.splyntra.com | Traces, logs, evals, security, cost |
+| Collector (OTLP / Ingest) | http://localhost:4318 | https://ingest.splyntra.com | `/v1/traces`, `/v1/logs`, ingest + query API |
 
 Database migrations (ClickHouse + Postgres) are applied automatically by the
 containers on first start — there is no separate migrate step for local dev.
 
 > **API keys.** `splyntra_dev_key` below is a **development-only** fallback that
 > is accepted only when the stack runs with `ENV`/`NODE_ENV=development` (the
-> default for `docker compose`). For any non-local deployment, generate a real
-> key in **Settings → API Keys** and pass it via the `SPLYNTRA_API_KEY`
-> environment variable — the dev key is rejected in production (fail-closed).
+> default for `docker compose`). For production or managed cloud, generate a real
+> key in **Settings → API Keys** and set `SPLYNTRA_API_KEY` along with
+> `SPLYNTRA_ENDPOINT=https://ingest.splyntra.com` — the dev key is rejected in production (fail-closed).
 
 ### Instrument Your Agent (Python)
 
@@ -49,12 +56,12 @@ pip install splyntra
 import os
 from splyntra import Splyntra, trace_agent, trace_tool, trace_llm, log
 
-# Initialize once. Reads SPLYNTRA_API_KEY from the environment in production;
-# falls back to the dev key only for local docker compose.
+# Initialize once. Reads SPLYNTRA_API_KEY from environment in production;
+# endpoint defaults to https://ingest.splyntra.com in cloud or http://localhost:4318 in local dev.
 splyntra = Splyntra(
     api_key=os.getenv("SPLYNTRA_API_KEY", "splyntra_dev_key"),
     project="my-project",
-    endpoint=os.getenv("SPLYNTRA_ENDPOINT", "http://localhost:4318"),
+    endpoint=os.getenv("SPLYNTRA_ENDPOINT", "https://ingest.splyntra.com"),  # or http://localhost:4318 locally
 )
 
 @trace_agent(name="support_agent", workflow="refund")
@@ -77,8 +84,8 @@ def execute_tool(action: dict):
 
 Run your agent, then open the dashboard:
 
-- **[/traces](http://localhost:3000/traces)** — the execution trace, with unified risk scoring for leaked secrets, exposed PII, prompt injection, content moderation, and unsafe tool calls.
-- **[/logs](http://localhost:3000/logs)** — structured, trace-correlated logs (redacted like spans).
+- **[/traces](https://app.splyntra.com/traces)** (or `http://localhost:3000/traces` locally) — the execution trace, with unified risk scoring for leaked secrets, exposed PII, prompt injection, content moderation, and unsafe tool calls.
+- **[/logs](https://app.splyntra.com/logs)** — structured, trace-correlated logs (redacted like spans).
 
 **Time to first trace: under 5 minutes.**
 
@@ -95,10 +102,11 @@ npm install @splyntra/sdk
 import { Splyntra, wrapAgent, wrapTool, wrapLLM, log } from "@splyntra/sdk";
 
 // Initialize once (auto-instruments the listed frameworks).
+// In production, set SPLYNTRA_ENDPOINT=https://ingest.splyntra.com
 new Splyntra({
   apiKey: process.env.SPLYNTRA_API_KEY ?? "splyntra_dev_key",
   project: "my-project",
-  endpoint: process.env.SPLYNTRA_ENDPOINT ?? "http://localhost:4318",
+  endpoint: process.env.SPLYNTRA_ENDPOINT ?? "https://ingest.splyntra.com", // or http://localhost:4318 locally
   instrument: ["openai", "langgraph"],
 });
 
@@ -125,11 +133,11 @@ Five pillars on one pipeline — Observe, Evaluate, Secure, Govern, Trust.
 
 | Pillar | Capabilities | Quality |
 |--------|--------------|---------|
-| **Observability** | Execution tracing, agent replay, structured trace-correlated logs, time-series metrics, cost analytics (run/model/project) | ✅ GA |
+| **Observability** | Execution tracing, agent replay, structured trace-correlated logs, time-series metrics, cost analytics (run/model/project), model pricing management & budgets | ✅ GA |
 | **Evaluation** | Dataset management, scorers (exact/rule/tool-call/latency/cost/groundedness), version-over-version regression, benchmark leaderboard, CI gate via the `splyntra` CLI — Python **and** TypeScript (+ LLM-as-judge in the commercial edition) | ✅ GA |
 | **Security** | Secret + PII detection, content moderation, tool-guard, prompt-injection (beta) — all feeding one risk score; inline block/redact guard | ✅ GA / ⚠️ BETA |
 | **Governance** | Activity Ledger (hash-chained), Delegation (self-service permissions, spend limits, approval workflow), Policy engine (RBAC/ABAC/ReBAC) | 💼 Commercial |
-| **Dashboard** | Projects, alerts (risk + cost), team management (RBAC + login), searchable/sortable/paginated tables with Excel export | ✅ GA |
+| **Dashboard** | Projects, alerts (risk + cost), team management (RBAC + login), model pricing editor, searchable/sortable/paginated tables with Excel export | ✅ GA |
 
 > 💼 Governance, identity/SSO, the control plane, billing, and advanced
 > detectors/scorers are the **commercial edition** (the private `splyntra-cloud`
@@ -143,8 +151,10 @@ Five pillars on one pipeline — Observe, Evaluate, Secure, Govern, Trust.
 
 | Doc | What's in it |
 |-----|--------------|
+| [Official Documentation](https://docs.splyntra.com) | Complete user guides, architecture, cloud onboarding, and SDK references |
 | [Getting Started](docs/GETTING_STARTED.md) | Zero → first trace, dashboard tour, evaluation/governance, Docker + Helm |
-| [API Reference](docs/API.md) | Ingest, query, metrics, integrations, governance, evaluation endpoints |
+| [API Reference](docs/API.md) | Ingest, query, metrics, pricing, budgets, integrations, governance, evaluation endpoints |
+| [Web Dashboard](apps/web/README.md) | Next.js dashboard setup, production proxying (`COLLECTOR_URL`), environment variables, features |
 | [Integrations](docs/INTEGRATIONS.md) | OpenAI, LangGraph, OpenAI Agents, CrewAI, Dify, n8n |
 | [Python SDK](sdks/python/README.md) | `instrument()`, decorators, redaction, `eval` CLI, `authorize()`/`log_action()` |
 | [TypeScript / JavaScript SDK](sdks/typescript/README.md) | Install, auto-instrument, function wrappers, decorators |
