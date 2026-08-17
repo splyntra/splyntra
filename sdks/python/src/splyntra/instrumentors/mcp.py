@@ -15,8 +15,8 @@ import json
 import time
 from typing import Collection
 
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import StatusCode
 
 
@@ -82,7 +82,7 @@ class MCPInstrumentor(BaseInstrumentor):
                     pass
                 return result
 
-            patched_init.__splyntra_wrapped = True
+            setattr(patched_init, "__splyntra_wrapped", True)
             ClientSession.initialize = patched_init
             self._orig_init = orig_init
 
@@ -124,7 +124,7 @@ class MCPInstrumentor(BaseInstrumentor):
                 span.end()
                 raise
 
-        patched.__splyntra_wrapped = True
+        setattr(patched, "__splyntra_wrapped", True)
         ClientSession.call_tool = patched
         self._orig = orig
 

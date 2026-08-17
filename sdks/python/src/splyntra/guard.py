@@ -49,7 +49,9 @@ def configure(
     _cfg.update(
         mode=mode or "off",
         fail_open=fail_open,
-        endpoint=(endpoint or os.getenv("SPLYNTRA_ENDPOINT", "http://localhost:4318")).rstrip("/"),
+        endpoint=(
+            endpoint or os.getenv("SPLYNTRA_ENDPOINT") or "https://ingest.splyntra.com"
+        ).rstrip("/"),
         api_key=api_key or os.getenv("SPLYNTRA_API_KEY", ""),
     )
 

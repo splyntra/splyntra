@@ -9,8 +9,8 @@ from __future__ import annotations
 import time
 from typing import Collection as TypingCollection
 
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import StatusCode
 
 
@@ -66,7 +66,7 @@ class ChromaInstrumentor(BaseInstrumentor):
                 return wrapper
 
             wrapped = make(orig, op)
-            wrapped.__splyntra_wrapped = True
+            setattr(wrapped, "__splyntra_wrapped", True)
             setattr(Collection, op, wrapped)
             self.__dict__.setdefault("_orig", {})[op] = orig
 

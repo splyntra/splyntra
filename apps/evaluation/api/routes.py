@@ -9,10 +9,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from scorers import PLUGIN_SCORERS, SCORERS, scorer_catalog
+from scorers.engine import is_regression, score_items
+
 from . import storage
 from .auth import Tenant, require_tenant
-from scorers import SCORERS, PLUGIN_SCORERS, scorer_catalog
-from scorers.engine import score_items, is_regression
 
 router = APIRouter()
 
@@ -73,9 +74,7 @@ def create_dataset(body: CreateDataset, tenant: Tenant = Depends(require_tenant)
             (tenant.org_id, tenant.project_id, body.name, slug, body.description),
         )
         dataset_id = cur.fetchone()["id"]
-        cur.execute(
-            "SELECT 1 FROM eval_datasets WHERE id = %s FOR UPDATE", (dataset_id,)
-        )
+        cur.execute("SELECT 1 FROM eval_datasets WHERE id = %s FOR UPDATE", (dataset_id,))
         cur.execute(
             "SELECT COALESCE(MAX(version), 0) + 1 AS v FROM eval_dataset_versions WHERE dataset_id = %s",
             (dataset_id,),
@@ -343,9 +342,7 @@ def run_evaluation(body: RunRequest, tenant: Tenant = Depends(require_tenant)):
 
 
 @router.get("/v1/evaluations/leaderboard")
-def leaderboard(
-    dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)
-):
+def leaderboard(dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)):
     """Rank agents/models by their eval performance. Grouped by (agent_id, model),
     returns best + latest score, pass-rate, and run count. Ranks SUBMITTED runs —
     the service does not execute agents (results are produced client-side)."""
@@ -425,9 +422,7 @@ def set_run_baseline(run_id: str, tenant: Tenant = Depends(require_tenant)):
 
 
 @router.get("/v1/evaluations")
-def list_runs(
-    dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)
-):
+def list_runs(dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)):
     with storage.cursor() as cur:
         if dataset_id:
             cur.execute(

@@ -106,9 +106,7 @@ async def detect(request: Request, body: DetectRequest) -> DetectResponse:
     # Content moderation (CPU-bound - offload to thread pool)
     if run_all or "moderation" in body.detectors:
         moderation_detector = request.app.state.moderation_detector
-        moderation_hits = await asyncio.to_thread(
-            moderation_detector.scan, body.content
-        )
+        moderation_hits = await asyncio.to_thread(moderation_detector.scan, body.content)
         detections.extend(moderation_hits)
 
     # Compute risk score

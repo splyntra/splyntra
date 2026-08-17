@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: FSL-1.1-ALv2
 """Splyntra Detector Service - FastAPI application."""
 
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-from detectors.pii import PIIDetector
-from detectors.secrets import SecretDetector
+from fastapi import FastAPI
+
 from detectors.injection import InjectionDetector
 from detectors.moderation import ModerationDetector
+from detectors.pii import PIIDetector
+from detectors.secrets import SecretDetector
+
 from .routes import router
 
 

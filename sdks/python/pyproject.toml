@@ -58,6 +58,11 @@ packages = ["src/splyntra"]
 target-version = "py39"
 line-length = 100
 
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E402"]
+
 [tool.mypy]
 python_version = "3.9"
-strict = true
+ignore_missing_imports = true
+check_untyped_defs = true

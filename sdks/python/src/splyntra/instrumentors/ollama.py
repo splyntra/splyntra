@@ -14,8 +14,8 @@ from __future__ import annotations
 import time
 from typing import Collection
 
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry import trace
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import StatusCode
 
 _OPS = ("chat", "generate")
@@ -97,7 +97,7 @@ class OllamaInstrumentor(BaseInstrumentor):
                 if orig is None or getattr(orig, "__splyntra_wrapped", False):
                     continue
                 wrapped = factory(orig, op)
-                wrapped.__splyntra_wrapped = True
+                setattr(wrapped, "__splyntra_wrapped", True)
                 self._originals[(cls_name, op)] = orig
                 setattr(cls, op, wrapped)
 
@@ -109,7 +109,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             if orig is None or getattr(orig, "__splyntra_wrapped", False):
                 continue
             wrapped = make_sync(orig, op)
-            wrapped.__splyntra_wrapped = True
+            setattr(wrapped, "__splyntra_wrapped", True)
             self._originals[("module", op)] = orig
             setattr(ollama, op, wrapped)
 

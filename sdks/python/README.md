@@ -1,8 +1,12 @@
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/291030557?s=200" alt="Splyntra" width="64" />
+  <img src="https://avatars.githubusercontent.com/u/291030557?s=200" alt="Splyntra" width="80" />
 </p>
 
-# Splyntra Python SDK
+<h1 align="center">Splyntra Python SDK</h1>
+
+<p align="center"><strong>Unified observability and security for AI agents in Python.</strong></p>
+
+<p align="center">Built on OpenTelemetry, with real-time risk scoring, trace-correlated logging, inline guardrails, and evaluation.</p>
 
 <p align="center">
   <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
@@ -10,11 +14,13 @@
   <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
 </p>
 
-[![PyPI](https://img.shields.io/pypi/v/splyntra)](https://pypi.org/project/splyntra/)
-[![Docs](https://img.shields.io/badge/docs-docs.splyntra.com-blue)](https://docs.splyntra.com)
-[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](./LICENSE)
+<p align="center">
+  <a href="https://pypi.org/project/splyntra/"><img src="https://img.shields.io/pypi/v/splyntra" alt="PyPI" /></a>
+  <a href="https://docs.splyntra.com"><img src="https://img.shields.io/badge/docs-docs.splyntra.com-blue" alt="Docs" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green.svg" alt="License" /></a>
+</p>
 
-Unified observability and security for AI agents in Python. Built on OpenTelemetry, the Splyntra SDK captures every agent step, LLM call, and tool invocation as a structured trace — enriched with real-time risk scoring for leaked secrets, PII exposure, prompt injection, content moderation, and unsafe tool calls. It also ships trace-correlated structured logging, an inline block/redact guardrail, evaluation, and governance helpers.
+---
 
 ## Installation
 
@@ -41,7 +47,9 @@ from splyntra import Splyntra
 Splyntra(
     api_key=os.getenv("SPLYNTRA_API_KEY", "splyntra_dev_key"),
     project="my-app",
-    endpoint=os.getenv("SPLYNTRA_ENDPOINT", "https://ingest.splyntra.com"),  # or http://localhost:4318 for local dev
+    endpoint=os.getenv(
+        "SPLYNTRA_ENDPOINT", "https://ingest.splyntra.com"
+    ),  # or http://localhost:4318 for local dev
     framework="langgraph",
     instrument=("langgraph", "openai"),
 )
@@ -54,8 +62,8 @@ To instrument separately (e.g., after configuring the client elsewhere):
 ```python
 from splyntra import instrument
 
-instrument()                 # auto-detect all installed frameworks
-instrument("langgraph")      # or target a specific one
+instrument()  # auto-detect all installed frameworks
+instrument("langgraph")  # or target a specific one
 ```
 
 ## Manual Instrumentation
@@ -65,14 +73,16 @@ For custom agent, tool, and LLM functions, use decorators. Both sync and async f
 ```python
 from splyntra import trace_agent, trace_tool, trace_llm
 
+
 @trace_agent(name="support_agent", workflow="refund")
 def run(query: str):
     customer = read_customer("42")
     return call_llm(query)
 
+
 @trace_tool(name="crm.read")
-def read_customer(id: str):
-    ...
+def read_customer(id: str): ...
+
 
 @trace_llm(model="gpt-4o", provider="openai")
 def call_llm(prompt: str) -> dict:
@@ -176,17 +186,23 @@ non-zero on a regression versus the dataset baseline, making it a CI gate.
 ```python
 from splyntra import eval as ev
 
-ev.push_dataset("support-qa", [
-    {"input": "capital of France?", "expected_output": "Paris",
-     "context": "Paris is the capital of France."},  # context powers groundedness
-])
+ev.push_dataset(
+    "support-qa",
+    [
+        {
+            "input": "capital of France?",
+            "expected_output": "Paris",
+            "context": "Paris is the capital of France.",
+        },  # context powers groundedness
+    ],
+)
 
 result = ev.run(
     dataset_id,
     results=[{"input": "capital of France?", "actual": "Paris"}],
     scorers=["exact_match", "groundedness"],
-    gate=True,          # exit non-zero on regression
-    set_baseline=False, # promote this run to the dataset baseline
+    gate=True,  # exit non-zero on regression
+    set_baseline=False,  # promote this run to the dataset baseline
 )
 ```
 
