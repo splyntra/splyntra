@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.7.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.3...dashboard-v3.7.0) (2026-08-17)
+
+
+### Features
+
+* fix collector proxy issue ([a608eae](https://github.com/splyntra/splyntra/commit/a608eaea006a628ccdecf95444eba440800dd5bd))
+* fix lint issue and formatting in python sdk ([3609d24](https://github.com/splyntra/splyntra/commit/3609d243abcacd2576090324aaf75ff6ebb25509))
+
+
+### Bug Fixes
+
+* fix collector proxy issue ([a608eae](https://github.com/splyntra/splyntra/commit/a608eaea006a628ccdecf95444eba440800dd5bd))
+* fix collector proxy issue ([7fc9ef8](https://github.com/splyntra/splyntra/commit/7fc9ef8becedb281d5513e073f56f6f0211b31de))
+* fix lint issue and formatting in python sdk ([3609d24](https://github.com/splyntra/splyntra/commit/3609d243abcacd2576090324aaf75ff6ebb25509))
+* fix lint issue and formatting in python sdk ([31b51a6](https://github.com/splyntra/splyntra/commit/31b51a647d5a14d0e3f5a87bfc3287bcdf92ebf2))
+
 ## [3.6.3](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.2...dashboard-v3.6.3) (2026-08-17)
 
 

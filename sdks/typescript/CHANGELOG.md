@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.0](https://github.com/splyntra/splyntra/compare/sdk-v2.0.1...sdk-v2.1.0) (2026-08-17)
+
+
+### Features
+
+* fix lint issue and formatting in python sdk ([3609d24](https://github.com/splyntra/splyntra/commit/3609d243abcacd2576090324aaf75ff6ebb25509))
+
+
+### Bug Fixes
+
+* fix lint issue and formatting in python sdk ([3609d24](https://github.com/splyntra/splyntra/commit/3609d243abcacd2576090324aaf75ff6ebb25509))
+* fix lint issue and formatting in python sdk ([31b51a6](https://github.com/splyntra/splyntra/commit/31b51a647d5a14d0e3f5a87bfc3287bcdf92ebf2))
+
 ## [2.0.1](https://github.com/splyntra/splyntra/compare/sdk-v2.0.0...sdk-v2.0.1) (2026-08-17)
 
 
