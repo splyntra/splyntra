@@ -23,8 +23,6 @@
   <a href="https://github.com/splyntra/splyntra/actions/workflows/go.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/go.yml/badge.svg" alt="Go" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/python.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/python.yml/badge.svg" alt="Python" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/web.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/web.yml/badge.svg" alt="Web" /></a>
-  <a href="https://pypi.org/project/splyntra/2.0.1/"><img src="https://img.shields.io/pypi/v/splyntra?logo=pypi&logoColor=white&label=PyPI&color=3775A9" alt="PyPI" /></a>
-  <a href="https://www.npmjs.com/package/@splyntra/sdk"><img src="https://img.shields.io/npm/v/%40splyntra%2Fsdk?logo=npm&logoColor=white&label=npm&color=CB3837" alt="npm" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/core-FSL--1.1--ALv2-blue.svg" alt="License" /></a>
   <a href="LICENSING.md"><img src="https://img.shields.io/badge/SDKs-Apache--2.0-green.svg" alt="SDKs" /></a>
 </p>
