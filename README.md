@@ -11,7 +11,9 @@
 <p align="center">
   <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
   <a href="https://app.splyntra.com"><strong>Cloud App</strong></a> ·
-  <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
+  <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a> ·
+  <a href="https://pypi.org/project/splyntra/2.0.1/"><strong>PyPI</strong></a> ·
+  <a href="https://www.npmjs.com/package/@splyntra/sdk"><strong>npm</strong></a>
 </p>
 
 <p align="center">
@@ -21,8 +23,14 @@
   <a href="https://github.com/splyntra/splyntra/actions/workflows/go.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/go.yml/badge.svg" alt="Go" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/python.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/python.yml/badge.svg" alt="Python" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/web.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/web.yml/badge.svg" alt="Web" /></a>
+  <a href="https://pypi.org/project/splyntra/2.0.1/"><img src="https://img.shields.io/pypi/v/splyntra?logo=pypi&logoColor=white&label=PyPI&color=3775A9" alt="PyPI" /></a>
+  <a href="https://www.npmjs.com/package/@splyntra/sdk"><img src="https://img.shields.io/npm/v/%40splyntra%2Fsdk?logo=npm&logoColor=white&label=npm&color=CB3837" alt="npm" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/core-FSL--1.1--ALv2-blue.svg" alt="License" /></a>
   <a href="LICENSING.md"><img src="https://img.shields.io/badge/SDKs-Apache--2.0-green.svg" alt="SDKs" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.producthunt.com/products/splyntra?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer"><img alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&amp;theme=dark&amp;t=1786985969126"></a>
 </p>
 
 ---

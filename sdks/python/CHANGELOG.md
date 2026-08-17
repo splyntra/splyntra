@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.1.0](https://github.com/splyntra/splyntra/compare/splyntra-v2.0.1...splyntra-v2.1.0) (2026-08-17)
+
+
+### Features
+
+* fix lint issue and formatting in python sdk ([3609d24](https://github.com/splyntra/splyntra/commit/3609d243abcacd2576090324aaf75ff6ebb25509))
+
+
+### Bug Fixes
+
+* fix lint issue and formatting in python sdk ([3609d24](https://github.com/splyntra/splyntra/commit/3609d243abcacd2576090324aaf75ff6ebb25509))
+* fix lint issue and formatting in python sdk ([31b51a6](https://github.com/splyntra/splyntra/commit/31b51a647d5a14d0e3f5a87bfc3287bcdf92ebf2))
+
+## [2.0.1](https://github.com/splyntra/splyntra/compare/splyntra-v2.0.0...splyntra-v2.0.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* add collector url and fix loop call ([7ff34f2](https://github.com/splyntra/splyntra/commit/7ff34f28792ddb1891fcedb3d4143d273e7d2dd5))
+* add collector url and fix loop call ([7ff34f2](https://github.com/splyntra/splyntra/commit/7ff34f28792ddb1891fcedb3d4143d273e7d2dd5))
+* fix docs and update url ([a9ec0ee](https://github.com/splyntra/splyntra/commit/a9ec0ee6570aebbc0976c85d5b9e33c5d597e683))
+* fix lint issue and formatting in python sdk ([356fee7](https://github.com/splyntra/splyntra/commit/356fee7bedc1cf959dbc3d4f758cc0f4156ea0ff))
+
+## [2.0.0](https://github.com/splyntra/splyntra/compare/splyntra-v1.3.1...splyntra-v2.0.0) (2026-07-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* security and resilience hardening across collector, dashboard, …
+* security and resilience hardening across collector, dashboard
+* collector honors X-Forwarded-For only from trusted proxy CIDRs (defaults to private ranges); /detect fails closed when unconfigured in production; dashboard write-gate uses the DB-verified role.
+
+### Bug Fixes
+
+* security and resilience hardening across collector, dashboard ([bff3953](https://github.com/splyntra/splyntra/commit/bff3953c136412a0d8bef41bfa2d2736ad716b42))
+* security and resilience hardening across collector, dashboard, … ([bff3953](https://github.com/splyntra/splyntra/commit/bff3953c136412a0d8bef41bfa2d2736ad716b42))
+* security and resilience hardening across collector, dashboard, detectors, and SDKs ([49df1e9](https://github.com/splyntra/splyntra/commit/49df1e9088b3d0132c3eb1152934aa69369edbad))
+
 ## [1.3.1](https://github.com/splyntra/splyntra/compare/splyntra-v1.3.0...splyntra-v1.3.1) (2026-07-13)
 
 
