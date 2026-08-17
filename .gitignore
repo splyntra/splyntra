@@ -19,6 +19,7 @@ build/
 .venv/
 venv/
 .eggs/
+.ruff_cache/
 
 # TypeScript / Node
 node_modules/

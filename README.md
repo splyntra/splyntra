@@ -16,6 +16,8 @@
 
 <p align="center">
   <a href="https://docs.splyntra.com"><img src="https://img.shields.io/badge/docs-docs.splyntra.com-blue" alt="Docs" /></a>
+  <a href="https://pypi.org/project/splyntra/"><img src="https://img.shields.io/pypi/v/splyntra.svg" alt="PyPI version" /></a>
+  <a href="https://www.npmjs.com/package/@splyntra/sdk"><img src="https://img.shields.io/npm/v/@splyntra/sdk.svg" alt="npm version" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/go.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/go.yml/badge.svg" alt="Go" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/python.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/python.yml/badge.svg" alt="Python" /></a>
   <a href="https://github.com/splyntra/splyntra/actions/workflows/web.yml"><img src="https://github.com/splyntra/splyntra/actions/workflows/web.yml/badge.svg" alt="Web" /></a>
