@@ -8,6 +8,7 @@ import { auth as getSession } from "@/auth";
 import { roleAtLeast } from "@/lib/db";
 import "@/lib/collector-auth-providers"; // side-effect: registers the resolver (no-op in OSS, OAuth/org in cloud)
 import { resolveCollectorAuth } from "@/lib/collector-auth";
+import { fetchWithRetry, forwardResponse } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -41,14 +42,14 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
   }
 
   try {
-    const res = await fetch(target, init);
-    const body = await res.text();
-    return new NextResponse(body, {
-      status: res.status,
-      headers: { "content-type": res.headers.get("content-type") || "application/json" },
-    });
+    const res = await fetchWithRetry(target, init, "eval-proxy");
+    // forwardResponse handles null-body statuses (204/205/304); a non-idempotent
+    // POST (start eval run) is intentionally not retried inside fetchWithRetry.
+    return await forwardResponse(res);
   } catch (err) {
-    return NextResponse.json({ error: "evaluation service unreachable", detail: String(err) }, { status: 502 });
+    // Don't leak internal host/port/error codes to the client (see api/v1 proxy).
+    console.error("[eval-proxy] fetch failed:", err);
+    return NextResponse.json({ error: "evaluation service unreachable" }, { status: 502 });
   }
 }
 
