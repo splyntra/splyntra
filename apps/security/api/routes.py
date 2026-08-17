@@ -31,6 +31,7 @@ def _authorize(request: Request) -> None:
     if not hmac.compare_digest(token, INTERNAL_SERVICE_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+
 MAX_CONTENT_LENGTH = 100_000  # 100KB max content per request
 
 # Detectors runnable from the content-only /detect endpoint. tool_guard is
@@ -105,7 +106,9 @@ async def detect(request: Request, body: DetectRequest) -> DetectResponse:
     # Content moderation (CPU-bound - offload to thread pool)
     if run_all or "moderation" in body.detectors:
         moderation_detector = request.app.state.moderation_detector
-        moderation_hits = await asyncio.to_thread(moderation_detector.scan, body.content)
+        moderation_hits = await asyncio.to_thread(
+            moderation_detector.scan, body.content
+        )
         detections.extend(moderation_hits)
 
     # Compute risk score

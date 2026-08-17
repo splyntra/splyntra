@@ -4,7 +4,14 @@
 
 # @splyntra/sdk
 
+<p align="center">
+  <a href="https://docs.splyntra.com"><strong>Documentation</strong></a> ·
+  <a href="https://app.splyntra.com"><strong>Cloud Dashboard</strong></a> ·
+  <a href="https://ingest.splyntra.com"><strong>Ingest Endpoint</strong></a>
+</p>
+
 [![npm](https://img.shields.io/npm/v/@splyntra/sdk)](https://www.npmjs.com/package/@splyntra/sdk)
+[![Docs](https://img.shields.io/badge/docs-docs.splyntra.com-blue)](https://docs.splyntra.com)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](./LICENSE)
 
 Unified observability and security for AI agents in TypeScript and JavaScript. Built on OpenTelemetry, the Splyntra SDK captures every agent step, LLM call, and tool invocation as a structured trace — enriched with real-time risk scoring for leaked secrets, PII exposure, and prompt injection.
@@ -31,9 +38,9 @@ Initialize once at process start. The `instrument` array enables automatic traci
 import { Splyntra } from "@splyntra/sdk";
 
 new Splyntra({
-  apiKey: "splyntra_dev_key",
+  apiKey: process.env.SPLYNTRA_API_KEY ?? "splyntra_dev_key",
   project: "my-app",
-  endpoint: "http://localhost:4318",
+  endpoint: process.env.SPLYNTRA_ENDPOINT ?? "https://ingest.splyntra.com", // or http://localhost:4318 locally
   framework: "langgraph",
   instrument: ["openai", "langgraph"],
 });

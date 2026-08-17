@@ -8,6 +8,8 @@ deploy.
 
 ---
 
+> **Cloud & Managed Deployment**: If you are using managed Splyntra Cloud, access your dashboard at [app.splyntra.com](https://app.splyntra.com), point your SDKs to `https://ingest.splyntra.com`, and refer to the [Official Documentation](https://docs.splyntra.com).
+
 ## 1. Start Splyntra (self-host)
 
 ```bash
@@ -17,20 +19,20 @@ docker compose up -d
 
 This brings up the full stack:
 
-| Service     | URL                     | Role                                   |
-|-------------|-------------------------|----------------------------------------|
-| Dashboard   | http://localhost:3000   | Traces, metrics, costs, evaluation, alerts |
-| Collector   | http://localhost:4318   | OTLP ingest + query API                |
-| Security    | http://localhost:8001   | Secret / PII / injection detectors     |
-| Evaluation  | http://localhost:8002   | Datasets, scorers, regression gates    |
+| Service     | Local URL               | Managed Cloud Endpoint  | Role                                   |
+|-------------|-------------------------|-------------------------|----------------------------------------|
+| Dashboard   | http://localhost:3000   | https://app.splyntra.com | Traces, metrics, costs, evaluation, alerts |
+| Collector   | http://localhost:4318   | https://ingest.splyntra.com | OTLP ingest + query API                |
+| Security    | http://localhost:8001   | Internal                | Secret / PII / injection detectors     |
+| Evaluation  | http://localhost:8002   | Internal                | Datasets, scorers, regression gates    |
 
-First time? Open <http://localhost:3000> and **sign up** — the first account
+First time? Open <http://localhost:3000> (or <https://app.splyntra.com>) and **sign up** — the first account
 becomes the org owner; invite teammates from **Team**.
 
 Wait for health: `curl localhost:4318/health` and `curl localhost:4318/ready`.
 
 The dev API key is **`splyntra_dev_key`** (seeded; works when the collector runs
-with `ENV=development`). It maps to the seeded org + "Default Project".
+with `ENV=development`). It maps to the seeded org + "Default Project". In production/cloud, generate a real key in **Settings → API Keys**.
 
 ---
 

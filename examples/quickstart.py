@@ -10,7 +10,7 @@ Prerequisites:
 
 Run:
     python quickstart.py
-    
+
 Then open http://localhost:3000/traces to see your trace.
 """
 
@@ -44,6 +44,7 @@ def plan_research(query: str) -> dict:
     """Simulate an LLM planning step."""
     # In production, this calls your LLM
     import time
+
     time.sleep(0.1)  # Simulate latency
     return {
         "search_query": f"latest research on {query}",
@@ -55,6 +56,7 @@ def plan_research(query: str) -> dict:
 def search_web(query: str) -> list:
     """Simulate a tool call."""
     import time
+
     time.sleep(0.2)  # Simulate API call
     return [
         {"title": "Result 1", "snippet": "Relevant information..."},
@@ -66,6 +68,7 @@ def search_web(query: str) -> list:
 def summarize(results: list) -> dict:
     """Simulate summarization."""
     import time
+
     time.sleep(0.15)
     return {
         "content": "Here is a summary of the research findings...",

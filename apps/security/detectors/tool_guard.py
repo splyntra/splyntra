@@ -17,11 +17,36 @@ from .models import Detection
 # (compiled pattern, category, severity, description). Matched against a haystack
 # of "<tool_name>\n<arguments>" so either the tool's identity or its args can trip.
 _RULES = [
-    (r"(?i)\b(rm\s+-rf|rmtree|unlink|shutil\.rmtree|deltree|del\s+/[sq])", "file_deletion", "CRITICAL", "Recursive/forced file deletion"),
-    (r"(?i)\b(os\.system|subprocess\.|exec\(|eval\(|child_process|spawn\(|/bin/sh|/bin/bash|\bsh\s+-c)", "shell_execution", "CRITICAL", "Arbitrary shell/command execution"),
-    (r"(?i)\b(drop\s+table|truncate\s+table|delete\s+from|drop\s+database|alter\s+table\s+\w+\s+drop)", "sql_destructive", "HIGH", "Destructive SQL statement"),
-    (r"(?i)(/etc/passwd|/etc/shadow|\.ssh/id_|\.aws/credentials|AKIA[0-9A-Z]{16}|BEGIN\s+(RSA|OPENSSH|EC)\s+PRIVATE\s+KEY)", "credential_access", "CRITICAL", "Access to credentials or secret material"),
-    (r"(?i)\b(curl\s+http|wget\s+http|requests\.(post|put)|fetch\(|http\.client|urllib\.request)", "network_egress", "MEDIUM", "Outbound network request from a tool"),
+    (
+        r"(?i)\b(rm\s+-rf|rmtree|unlink|shutil\.rmtree|deltree|del\s+/[sq])",
+        "file_deletion",
+        "CRITICAL",
+        "Recursive/forced file deletion",
+    ),
+    (
+        r"(?i)\b(os\.system|subprocess\.|exec\(|eval\(|child_process|spawn\(|/bin/sh|/bin/bash|\bsh\s+-c)",
+        "shell_execution",
+        "CRITICAL",
+        "Arbitrary shell/command execution",
+    ),
+    (
+        r"(?i)\b(drop\s+table|truncate\s+table|delete\s+from|drop\s+database|alter\s+table\s+\w+\s+drop)",
+        "sql_destructive",
+        "HIGH",
+        "Destructive SQL statement",
+    ),
+    (
+        r"(?i)(/etc/passwd|/etc/shadow|\.ssh/id_|\.aws/credentials|AKIA[0-9A-Z]{16}|BEGIN\s+(RSA|OPENSSH|EC)\s+PRIVATE\s+KEY)",
+        "credential_access",
+        "CRITICAL",
+        "Access to credentials or secret material",
+    ),
+    (
+        r"(?i)\b(curl\s+http|wget\s+http|requests\.(post|put)|fetch\(|http\.client|urllib\.request)",
+        "network_egress",
+        "MEDIUM",
+        "Outbound network request from a tool",
+    ),
 ]
 
 _DANGEROUS_TOOL_NAMES = re.compile(

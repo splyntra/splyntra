@@ -33,9 +33,7 @@ SECRET_PATTERNS: list[SecretPattern] = [
     SecretPattern(
         id="aws-secret-key",
         description="AWS Secret Access Key",
-        regex=re.compile(
-            r"(?i)aws_secret_access_key\s*[=:]\s*[A-Za-z0-9/+=]{40}"
-        ),
+        regex=re.compile(r"(?i)aws_secret_access_key\s*[=:]\s*[A-Za-z0-9/+=]{40}"),
         severity="CRITICAL",
     ),
     SecretPattern(
@@ -94,9 +92,7 @@ SECRET_PATTERNS: list[SecretPattern] = [
     SecretPattern(
         id="database-url",
         description="Database Connection String",
-        regex=re.compile(
-            r"(?i)(postgres|mysql|mongodb|redis)://[^\s\"'<>]{10,}"
-        ),
+        regex=re.compile(r"(?i)(postgres|mysql|mongodb|redis)://[^\s\"'<>]{10,}"),
         severity="HIGH",
     ),
 ]
@@ -143,7 +139,9 @@ class SecretDetector:
                     if entropy < _MIN_ENTROPY:
                         continue  # low-entropy → placeholder/false positive, skip
                     # Scale confidence with entropy above the floor.
-                    confidence = round(min(0.95, 0.6 + (entropy - _MIN_ENTROPY) * 0.15), 2)
+                    confidence = round(
+                        min(0.95, 0.6 + (entropy - _MIN_ENTROPY) * 0.15), 2
+                    )
                 detections.append(
                     Detection(
                         detector="secrets",

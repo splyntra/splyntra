@@ -121,7 +121,7 @@ class PIIDetector:
         arbitrary 12-digit numbers (order IDs, timestamps)."""
         out: list[Detection] = []
         for m in _AADHAAR_RE.finditer(text):
-            digits = (m.group(1) + m.group(2) + m.group(3))
+            digits = m.group(1) + m.group(2) + m.group(3)
             if not _verhoeff_valid(digits):
                 continue
             out.append(

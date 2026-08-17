@@ -51,7 +51,9 @@ class ChromaInstrumentor(BaseInstrumentor):
                                 span.set_attribute("vector.hits", sum(len(x) for x in ids))
                         except Exception:
                             pass
-                        span.set_attribute("splyntra.tool.duration_ms", (time.time() - start) * 1000)
+                        span.set_attribute(
+                            "splyntra.tool.duration_ms", (time.time() - start) * 1000
+                        )
                         span.set_status(StatusCode.OK)
                         span.end()
                         return result

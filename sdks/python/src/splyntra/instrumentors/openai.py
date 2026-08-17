@@ -37,6 +37,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             is_stream = kwargs.get("stream", False)
             # Inline guardrail pre-flight: may raise SplyntraBlocked before the call.
             from .. import guard as _guard
+
             _guard.enforce(_guard.extract_text(kwargs), "input")
             span = tracer.start_span(
                 f"openai.chat.{model}",
@@ -77,7 +78,10 @@ class OpenAIInstrumentor(BaseInstrumentor):
             # Inline guardrail pre-flight (run the blocking check off the event loop).
             import asyncio
             from .. import guard as _guard
-            await asyncio.get_event_loop().run_in_executor(None, _guard.enforce, _guard.extract_text(kwargs), "input")
+
+            await asyncio.get_event_loop().run_in_executor(
+                None, _guard.enforce, _guard.extract_text(kwargs), "input"
+            )
             span = tracer.start_span(
                 f"openai.chat.{model}",
                 kind=trace.SpanKind.CLIENT,

@@ -21,7 +21,9 @@ from . import storage
 
 _DEV_ORG = "00000000-0000-0000-0000-000000000001"
 _DEV_PROJECT = "00000000-0000-0000-0000-000000000002"
-_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 @dataclass
@@ -41,7 +43,7 @@ def resolve(
 ) -> Tenant:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing api key")
-    key = authorization[len("Bearer "):]
+    key = authorization[len("Bearer ") :]
 
     # Trusted first-party channel: the dashboard BFF presents the shared service
     # token plus X-Splyntra-Org-Id / X-Splyntra-Project-Id headers to scope the
@@ -55,8 +57,15 @@ def resolve(
         # require_tenant below). Never require the project header here — the cloud
         # BFF doesn't send it, and requiring it would 400 every request.
         if not org_header or not _UUID_RE.match(org_header):
-            raise HTTPException(status_code=400, detail="service token requires a valid X-Splyntra-Org-Id")
-        project = project_header if (project_header and _UUID_RE.match(project_header)) else ""
+            raise HTTPException(
+                status_code=400,
+                detail="service token requires a valid X-Splyntra-Org-Id",
+            )
+        project = (
+            project_header
+            if (project_header and _UUID_RE.match(project_header))
+            else ""
+        )
         return Tenant(org_id=org_header, project_id=project)
 
     if os.getenv("ENV") == "development" and key == "splyntra_dev_key":

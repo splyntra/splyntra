@@ -33,20 +33,38 @@ def test_rule_based_substring_and_regex():
 
 def test_groundedness_hallucination_proxy():
     # Fully supported by context → grounded.
-    grounded = groundedness({"actual": "Paris is the capital", "context": "Paris is the capital of France"})
+    grounded = groundedness(
+        {"actual": "Paris is the capital", "context": "Paris is the capital of France"}
+    )
     assert grounded == 1.0
     # A fabricated claim not in the context → low groundedness (hallucination).
-    hallucinated = groundedness({"actual": "Berlin Tokyo Sydney", "context": "Paris is the capital of France"})
+    hallucinated = groundedness(
+        {"actual": "Berlin Tokyo Sydney", "context": "Paris is the capital of France"}
+    )
     assert hallucinated < 0.5
     # No context → nothing to contradict → 1.0 (use the LLM faithfulness judge instead).
     assert groundedness({"actual": "anything", "context": ""}) == 1.0
     # Context as a list is joined.
-    assert groundedness({"actual": "cats purr", "context": ["cats purr", "dogs bark"]}) == 1.0
+    assert (
+        groundedness({"actual": "cats purr", "context": ["cats purr", "dogs bark"]})
+        == 1.0
+    )
 
 
 def test_tool_call_success():
-    assert tool_call_success({"expected_tool_calls": ["crm.read", "pay.refund"], "tool_calls": ["crm.read", "pay.refund"]}) == 1.0
-    assert tool_call_success({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]}) == 0.5
+    assert (
+        tool_call_success(
+            {
+                "expected_tool_calls": ["crm.read", "pay.refund"],
+                "tool_calls": ["crm.read", "pay.refund"],
+            }
+        )
+        == 1.0
+    )
+    assert (
+        tool_call_success({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]})
+        == 0.5
+    )
     assert tool_call_success({"expected_tool_calls": [], "tool_calls": []}) == 1.0
 
 
@@ -60,8 +78,8 @@ def test_latency_and_cost_thresholds():
 def test_precision_recall_token_overlap():
     # expected "the quick brown fox" (4 tokens); actual "quick brown" (2 tokens, both in expected)
     item = {"expected": "the quick brown fox", "actual": "quick brown"}
-    assert precision_token_overlap(item) == 1.0          # 2/2 actual tokens are expected
-    assert recall_token_overlap(item) == 0.5             # 2/4 expected tokens present
+    assert precision_token_overlap(item) == 1.0  # 2/2 actual tokens are expected
+    assert recall_token_overlap(item) == 0.5  # 2/4 expected tokens present
     # partial precision: one of two actual tokens is expected
     p = {"expected": "alpha", "actual": "alpha zzz"}
     assert precision_token_overlap(p) == 0.5
@@ -71,9 +89,17 @@ def test_precision_recall_token_overlap():
 
 
 def test_tool_call_precision():
-    assert tool_call_precision({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]}) == 1.0   # all actual expected
-    assert tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": ["a", "b"]}) == 0.5   # b unexpected
-    assert tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": []}) == 1.0           # no calls → precise
+    assert (
+        tool_call_precision({"expected_tool_calls": ["a", "b"], "tool_calls": ["a"]})
+        == 1.0
+    )  # all actual expected
+    assert (
+        tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": ["a", "b"]})
+        == 0.5
+    )  # b unexpected
+    assert (
+        tool_call_precision({"expected_tool_calls": ["a"], "tool_calls": []}) == 1.0
+    )  # no calls → precise
 
 
 def test_score_items_aggregate():
@@ -90,6 +116,6 @@ def test_score_items_aggregate():
 
 
 def test_regression_detection():
-    assert is_regression(0.80, 0.90) is True   # 10% drop > 5% delta
+    assert is_regression(0.80, 0.90) is True  # 10% drop > 5% delta
     assert is_regression(0.88, 0.90) is False  # within delta
     assert is_regression(0.50, None) is False  # no baseline → never a regression

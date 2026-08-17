@@ -16,7 +16,9 @@ from .models import Detection
 # into the image at build (see scripts/bundle_injection_onnx.py) so detection runs
 # offline; SPLYNTRA_INJECTION_MODEL_DIR points at that baked directory.
 _INJECTION_MODEL_ID = "protectai/deberta-v3-base-prompt-injection-v2"
-_INJECTION_MODEL_DIR = os.getenv("SPLYNTRA_INJECTION_MODEL_DIR", "/app/models/injection-onnx")
+_INJECTION_MODEL_DIR = os.getenv(
+    "SPLYNTRA_INJECTION_MODEL_DIR", "/app/models/injection-onnx"
+)
 
 
 # Heuristic patterns for common injection techniques
@@ -166,8 +168,16 @@ class InjectionDetector:
                 for fname in ("model_quantized.onnx", "model.onnx", None):
                     try:
                         kwargs = {"file_name": fname} if fname else {}
-                        model = ORTModelForSequenceClassification.from_pretrained(_INJECTION_MODEL_DIR, **kwargs)
-                        return pipeline("text-classification", model=model, tokenizer=tokenizer, truncation=True, max_length=512)
+                        model = ORTModelForSequenceClassification.from_pretrained(
+                            _INJECTION_MODEL_DIR, **kwargs
+                        )
+                        return pipeline(
+                            "text-classification",
+                            model=model,
+                            tokenizer=tokenizer,
+                            truncation=True,
+                            max_length=512,
+                        )
                     except Exception:  # noqa: BLE001 — try the next candidate file
                         continue
             except Exception:  # noqa: BLE001 — ONNX runtime not available; fall through
@@ -176,6 +186,11 @@ class InjectionDetector:
         try:
             from transformers import pipeline
 
-            return pipeline("text-classification", model=_INJECTION_MODEL_ID, truncation=True, max_length=512)
+            return pipeline(
+                "text-classification",
+                model=_INJECTION_MODEL_ID,
+                truncation=True,
+                max_length=512,
+            )
         except Exception:  # noqa: BLE001 — graceful degradation to regex-only
             return False

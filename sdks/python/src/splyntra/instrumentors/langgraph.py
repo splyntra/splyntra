@@ -86,6 +86,7 @@ def _node_name(instance) -> str:
 
 def _wrap_agent(tracer, original, is_async: bool):
     if is_async:
+
         @functools.wraps(original)
         async def awrapper(self, *args, **kwargs):
             with tracer.start_as_current_span(
@@ -133,6 +134,7 @@ def _wrap_agent(tracer, original, is_async: bool):
 
 def _wrap_node(tracer, original, is_async: bool):
     if is_async:
+
         @functools.wraps(original)
         async def awrapper(self, *args, **kwargs):
             with tracer.start_as_current_span(

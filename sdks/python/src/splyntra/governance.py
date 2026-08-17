@@ -41,7 +41,13 @@ def _post(path: str, payload: dict, api_key: Optional[str]) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def authorize(action: str, agent_id: str = "agent", resource: str = "", context: Optional[dict] = None, api_key: Optional[str] = None) -> dict:
+def authorize(
+    action: str,
+    agent_id: str = "agent",
+    resource: str = "",
+    context: Optional[dict] = None,
+    api_key: Optional[str] = None,
+) -> dict:
     """Ask whether an agent may perform an action on a resource.
 
     ``resource`` scopes the decision (e.g. ``"payroll.read"``) so resource-level
@@ -56,10 +62,23 @@ def authorize(action: str, agent_id: str = "agent", resource: str = "", context:
     )
 
 
-def log_action(action: str, actor: str = "agent", resource: str = "", trace_id: str = "", metadata: Optional[dict] = None, api_key: Optional[str] = None) -> dict:
+def log_action(
+    action: str,
+    actor: str = "agent",
+    resource: str = "",
+    trace_id: str = "",
+    metadata: Optional[dict] = None,
+    api_key: Optional[str] = None,
+) -> dict:
     """Append a consequential action to the immutable activity ledger."""
     return _post(
         "/v1/ledger",
-        {"actor": actor, "action": action, "resource": resource, "trace_id": trace_id, "metadata": metadata or {}},
+        {
+            "actor": actor,
+            "action": action,
+            "resource": resource,
+            "trace_id": trace_id,
+            "metadata": metadata or {},
+        },
         api_key,
     )

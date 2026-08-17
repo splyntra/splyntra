@@ -16,7 +16,9 @@ from scorers.engine import score_items, is_regression
 
 router = APIRouter()
 
-_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 def _slug(name: str) -> str:
@@ -25,6 +27,7 @@ def _slug(name: str) -> str:
 
 # ─── Scorers catalog ─────────────────────────────────────────────────────────
 
+
 @router.get("/v1/scorers")
 def list_scorers(tenant: Tenant = Depends(require_tenant)):
     """Available scorers for the dashboard's Run-evaluation scorer picker."""
@@ -32,6 +35,7 @@ def list_scorers(tenant: Tenant = Depends(require_tenant)):
 
 
 # ─── Datasets ──────────────────────────────────────────────────────────────
+
 
 class DatasetItem(BaseModel):
     input: str
@@ -69,7 +73,9 @@ def create_dataset(body: CreateDataset, tenant: Tenant = Depends(require_tenant)
             (tenant.org_id, tenant.project_id, body.name, slug, body.description),
         )
         dataset_id = cur.fetchone()["id"]
-        cur.execute("SELECT 1 FROM eval_datasets WHERE id = %s FOR UPDATE", (dataset_id,))
+        cur.execute(
+            "SELECT 1 FROM eval_datasets WHERE id = %s FOR UPDATE", (dataset_id,)
+        )
         cur.execute(
             "SELECT COALESCE(MAX(version), 0) + 1 AS v FROM eval_dataset_versions WHERE dataset_id = %s",
             (dataset_id,),
@@ -93,7 +99,12 @@ def create_dataset(body: CreateDataset, tenant: Tenant = Depends(require_tenant)
             )
         raise
 
-    return {"dataset_id": dataset_id, "slug": slug, "version": version, "item_count": len(items)}
+    return {
+        "dataset_id": dataset_id,
+        "slug": slug,
+        "version": version,
+        "item_count": len(items),
+    }
 
 
 @router.get("/v1/datasets")
@@ -133,7 +144,10 @@ def get_dataset(dataset_id: str, tenant: Tenant = Depends(require_tenant)):
             (dataset_id,),
         )
         versions = cur.fetchall()
-        cur.execute("SELECT run_id::text, score FROM eval_baselines WHERE dataset_id = %s", (dataset_id,))
+        cur.execute(
+            "SELECT run_id::text, score FROM eval_baselines WHERE dataset_id = %s",
+            (dataset_id,),
+        )
         baseline = cur.fetchone()
     items = []
     if versions and versions[0].get("object_key"):
@@ -141,10 +155,16 @@ def get_dataset(dataset_id: str, tenant: Tenant = Depends(require_tenant)):
             items = storage.get_items(versions[0]["object_key"])
         except Exception:  # noqa: BLE001 — missing object shouldn't fail the view
             items = []
-    return {"dataset": ds, "versions": versions, "baseline": baseline, "items": items[:500]}
+    return {
+        "dataset": ds,
+        "versions": versions,
+        "baseline": baseline,
+        "items": items[:500],
+    }
 
 
 # ─── Runs ──────────────────────────────────────────────────────────────────
+
 
 class RunResultIn(BaseModel):
     input: str = ""
@@ -227,7 +247,9 @@ def run_evaluation(body: RunRequest, tenant: Tenant = Depends(require_tenant)):
         g = ground_truth.get(it.get("input", ""))
         if g:
             it["expected"] = g.get("expected_output", it.get("expected", ""))
-            it["expected_tool_calls"] = g.get("expected_tool_calls", it.get("expected_tool_calls", []))
+            it["expected_tool_calls"] = g.get(
+                "expected_tool_calls", it.get("expected_tool_calls", [])
+            )
             # Prefer the dataset's server-owned context; fall back to the client's.
             if g.get("context"):
                 it["context"] = g["context"]
@@ -254,7 +276,10 @@ def run_evaluation(body: RunRequest, tenant: Tenant = Depends(require_tenant)):
             prev = cur.fetchone()
             baseline = prev["score"] if prev else None
         if baseline is None:
-            cur.execute("SELECT score FROM eval_baselines WHERE dataset_id = %s", (body.dataset_id,))
+            cur.execute(
+                "SELECT score FROM eval_baselines WHERE dataset_id = %s",
+                (body.dataset_id,),
+            )
             row = cur.fetchone()
             baseline = row["score"] if row else None
         regression = is_regression(scored["score"], baseline)
@@ -268,16 +293,32 @@ def run_evaluation(body: RunRequest, tenant: Tenant = Depends(require_tenant)):
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id::text
             """,
             (
-                tenant.org_id, tenant.project_id, body.dataset_id, version,
-                body.agent_id or None, body.model or None, scored["score"],
-                len(items), passed, regression, _json.dumps(scored["per_scorer"]),
+                tenant.org_id,
+                tenant.project_id,
+                body.dataset_id,
+                version,
+                body.agent_id or None,
+                body.model or None,
+                scored["score"],
+                len(items),
+                passed,
+                regression,
+                _json.dumps(scored["per_scorer"]),
             ),
         )
         run_id = cur.fetchone()["id"]
         for r in scored["results"]:
             cur.execute(
                 "INSERT INTO eval_results (run_id, idx, input, expected, actual, passed, scores) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                (run_id, r["idx"], r["input"], r["expected"], r["actual"], r["passed"], _json.dumps(r["scores"])),
+                (
+                    run_id,
+                    r["idx"],
+                    r["input"],
+                    r["expected"],
+                    r["actual"],
+                    r["passed"],
+                    _json.dumps(r["scores"]),
+                ),
             )
         if body.set_baseline:
             cur.execute(
@@ -302,7 +343,9 @@ def run_evaluation(body: RunRequest, tenant: Tenant = Depends(require_tenant)):
 
 
 @router.get("/v1/evaluations/leaderboard")
-def leaderboard(dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)):
+def leaderboard(
+    dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)
+):
     """Rank agents/models by their eval performance. Grouped by (agent_id, model),
     returns best + latest score, pass-rate, and run count. Ranks SUBMITTED runs —
     the service does not execute agents (results are produced client-side)."""
@@ -382,7 +425,9 @@ def set_run_baseline(run_id: str, tenant: Tenant = Depends(require_tenant)):
 
 
 @router.get("/v1/evaluations")
-def list_runs(dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)):
+def list_runs(
+    dataset_id: Optional[str] = None, tenant: Tenant = Depends(require_tenant)
+):
     with storage.cursor() as cur:
         if dataset_id:
             cur.execute(

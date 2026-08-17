@@ -27,8 +27,11 @@ class PydanticAIInstrumentor(BaseInstrumentor):
 
         def make_sync(orig):
             def wrapper(self_agent, *args, **kw):
-                span = tracer.start_span("pydantic_ai.run", kind=trace.SpanKind.INTERNAL,
-                                         attributes={"splyntra.span.type": "agent", "splyntra.framework": "pydantic-ai"})
+                span = tracer.start_span(
+                    "pydantic_ai.run",
+                    kind=trace.SpanKind.INTERNAL,
+                    attributes={"splyntra.span.type": "agent", "splyntra.framework": "pydantic-ai"},
+                )
                 start = time.time()
                 try:
                     result = orig(self_agent, *args, **kw)
@@ -41,12 +44,16 @@ class PydanticAIInstrumentor(BaseInstrumentor):
                     span.record_exception(e)
                     span.end()
                     raise
+
             return wrapper
 
         def make_async(orig):
             async def wrapper(self_agent, *args, **kw):
-                span = tracer.start_span("pydantic_ai.run", kind=trace.SpanKind.INTERNAL,
-                                         attributes={"splyntra.span.type": "agent", "splyntra.framework": "pydantic-ai"})
+                span = tracer.start_span(
+                    "pydantic_ai.run",
+                    kind=trace.SpanKind.INTERNAL,
+                    attributes={"splyntra.span.type": "agent", "splyntra.framework": "pydantic-ai"},
+                )
                 start = time.time()
                 try:
                     result = await orig(self_agent, *args, **kw)
@@ -59,6 +66,7 @@ class PydanticAIInstrumentor(BaseInstrumentor):
                     span.record_exception(e)
                     span.end()
                     raise
+
             return wrapper
 
         for method, factory in (("run_sync", make_sync), ("run", make_async)):

@@ -73,9 +73,12 @@ def cursor() -> Iterator[psycopg2.extras.RealDictCursor]:
 
 # ─── Object storage ────────────────────────────────────────────────────────
 
+
 def put_items(key: str, items: List[dict]) -> None:
     body = "\n".join(json.dumps(i) for i in items).encode("utf-8")
-    _s3.put_object(Bucket=_BUCKET, Key=key, Body=io.BytesIO(body), ContentLength=len(body))
+    _s3.put_object(
+        Bucket=_BUCKET, Key=key, Body=io.BytesIO(body), ContentLength=len(body)
+    )
 
 
 def get_items(key: str) -> List[dict]:
