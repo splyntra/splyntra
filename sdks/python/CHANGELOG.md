@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.1](https://github.com/splyntra/splyntra/compare/splyntra-v2.0.0...splyntra-v2.0.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* add collector url and fix loop call ([7ff34f2](https://github.com/splyntra/splyntra/commit/7ff34f28792ddb1891fcedb3d4143d273e7d2dd5))
+* add collector url and fix loop call ([7ff34f2](https://github.com/splyntra/splyntra/commit/7ff34f28792ddb1891fcedb3d4143d273e7d2dd5))
+* fix docs and update url ([a9ec0ee](https://github.com/splyntra/splyntra/commit/a9ec0ee6570aebbc0976c85d5b9e33c5d597e683))
+* fix lint issue and formatting in python sdk ([356fee7](https://github.com/splyntra/splyntra/commit/356fee7bedc1cf959dbc3d4f758cc0f4156ea0ff))
+
 ## [2.0.0](https://github.com/splyntra/splyntra/compare/splyntra-v1.3.1...splyntra-v2.0.0) (2026-07-19)
 
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.6.3](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.2...dashboard-v3.6.3) (2026-08-17)
+
+
+### Bug Fixes
+
+* add collector url and fix loop call ([7ff34f2](https://github.com/splyntra/splyntra/commit/7ff34f28792ddb1891fcedb3d4143d273e7d2dd5))
+* add collector url and fix loop call ([7ff34f2](https://github.com/splyntra/splyntra/commit/7ff34f28792ddb1891fcedb3d4143d273e7d2dd5))
+* add collector url and fix loop call ([17598e7](https://github.com/splyntra/splyntra/commit/17598e78eae7b692209f8d40a19fa68ff37558b8))
+* fix docs and update url ([a9ec0ee](https://github.com/splyntra/splyntra/commit/a9ec0ee6570aebbc0976c85d5b9e33c5d597e683))
+
 ## [3.6.2](https://github.com/splyntra/splyntra/compare/dashboard-v3.6.1...dashboard-v3.6.2) (2026-08-16)
 
 
