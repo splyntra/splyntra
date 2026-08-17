@@ -12,6 +12,7 @@ import { auth as getSession } from "@/auth";
 import { roleAtLeast } from "@/lib/db";
 import "@/lib/collector-auth-providers"; // side-effect: registers the resolver (no-op in OSS, OAuth/org in cloud)
 import { resolveCollectorAuth, resolveEffectiveRole, resolvePathAllowed } from "@/lib/collector-auth";
+import { fetchWithRetry, forwardResponse } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -76,12 +77,10 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
   }
 
   try {
-    const res = await fetch(target, init);
-    const body = await res.text();
-    return new NextResponse(body, {
-      status: res.status,
-      headers: { "content-type": res.headers.get("content-type") || "application/json" },
-    });
+    const res = await fetchWithRetry(target, init, "collector-proxy");
+    // forwardResponse handles null-body statuses (204/205/304) so a successful
+    // PUT/DELETE doesn't throw in the Response constructor and get mislabeled 502.
+    return await forwardResponse(res);
   } catch (err) {
     // Log the detail server-side; don't leak internal host/port/error codes
     // (e.g. "connect ECONNREFUSED 10.x.x.x:4318") to the client.
