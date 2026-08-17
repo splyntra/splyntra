@@ -19,6 +19,7 @@ function collectorBase(): string {
   return (
     process.env.COLLECTOR_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
+    "https://ingest.splyntra.com" ||
     "http://localhost:4318"
   ).replace(/\/$/, "");
 }
