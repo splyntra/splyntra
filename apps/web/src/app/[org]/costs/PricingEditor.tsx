@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePricing } from "@/lib/hooks";
 import { upsertPricing, deletePricing } from "@/lib/api";
-import { Tag, Plus, Trash2, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { Tag, Plus, Pencil, Trash2, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/primitives";
 import { useTableControls, TablePagination } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/Toast";
@@ -124,8 +124,24 @@ export function PricingEditor() {
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">${p.prompt_per_1k}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">${p.completion_per_1k}</td>
                     <td className="px-4 py-2.5 text-right">
-                      <button onClick={() => { setModel(p.model); setPrompt(String(p.prompt_per_1k)); setCompletion(String(p.completion_per_1k)); }} className="mr-2 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white">Edit</button>
-                      <button onClick={() => remove(p.model)} className="text-xs text-red-600 hover:underline">Delete</button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => { setModel(p.model); setPrompt(String(p.prompt_per_1k)); setCompletion(String(p.completion_per_1k)); }}
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                          title="Edit price"
+                          aria-label="Edit price"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => remove(p.model)}
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                          title="Delete price"
+                          aria-label="Delete price"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
