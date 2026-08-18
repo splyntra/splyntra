@@ -238,7 +238,28 @@ function UserMenu() {
   const oh = useOrgHref();
   const user = session?.user as { email?: string; name?: string; role?: string } | undefined;
   const [open, setOpen] = useState(false);
+  const [isSuper, setIsSuper] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (user?.email) {
+      const seeded = ["splyntra@gmail.com"];
+      const envAdmins = String(process.env.NEXT_PUBLIC_SUPER_ADMINS || "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+      if (seeded.includes(user.email.toLowerCase().trim()) || envAdmins.includes(user.email.toLowerCase().trim())) {
+        setIsSuper(true);
+      } else {
+        fetch("/api/admin/check")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d?.isAdmin) setIsSuper(true);
+          })
+          .catch(() => {});
+      }
+    }
+  }, [user?.email]);
 
   useEffect(() => {
     if (!open) return;
@@ -274,6 +295,16 @@ function UserMenu() {
           <Link href={oh("/settings")} role="menuitem" onClick={() => setOpen(false)} className={itemCls}>
             <Settings className="h-4 w-4 text-gray-400" /> Settings
           </Link>
+          {isSuper && (
+            <Link
+              href="/admin"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/40"
+            >
+              <ShieldCheck className="h-4 w-4 text-purple-500" /> Admin Console
+            </Link>
+          )}
           <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
           <button role="menuitem" onClick={() => signOut({ callbackUrl: "/login" })} className={itemCls}>
             <LogOut className="h-4 w-4 text-gray-400" /> Sign out
