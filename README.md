@@ -24,9 +24,20 @@
   <a href="LICENSING.md"><img src="https://img.shields.io/badge/SDKs-Apache--2.0-green.svg" alt="SDKs" /></a>
 </p>
 
-<p align="center">
-  <a href="https://www.producthunt.com/products/splyntra?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer"><img alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&amp;theme=dark&amp;t=1786985969126"></a>
-</p>
+<div align="center">
+  <span style="display:block; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#a1a1aa; margin-bottom:10px;">Featured on</span>
+  <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px;">
+    <a href="https://www.producthunt.com/products/splyntra?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; transition:all 0.2s ease;">
+      <img alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&amp;theme=light&amp;t=1787068071903" style="height:40px; width:auto; max-width:100%; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.15);" />
+    </a>
+    <a href="https://launchkiwi.com/p/splyntra" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; transition:all 0.2s ease;">
+      <img src="https://launchkiwi.com/badge-light.svg" alt="Featured on LaunchKiwi" width="198" height="62" style="height:40px; width:auto; max-width:100%; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.15);" />
+    </a>
+    <a href="https://wired.business" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; transition:all 0.2s ease;">
+      <img src="https://wired.business/badge1-white.svg" alt="Featured on Wired Business" width="200" height="54" style="height:40px; width:auto; max-width:100%; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.15);" />
+    </a>
+  </div>
+</div>
 
 ---
 
