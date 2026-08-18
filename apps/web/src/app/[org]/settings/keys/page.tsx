@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useKeys, useProjects } from "@/lib/hooks";
 import { createKey, revokeKey, rotateKey, ApiKeyItem } from "@/lib/api";
-import { KeyRound, Copy, Check, RefreshCw, Trash2, ShieldCheck, AlertTriangle } from "lucide-react";
+import { KeyRound, Copy, Check, RefreshCw, Trash2, ShieldCheck, AlertTriangle, X } from "lucide-react";
 import { PageHeader, Card, EmptyState } from "@/components/ui/primitives";
 import { useTableControls, TablePagination } from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/Toast";
@@ -43,30 +43,34 @@ export default function KeysPage() {
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name;
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["keys"] });
 
-  function toggleScope(s: string) {
-    setScopes((prev) => {
-      const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
+  function toggleScope(id: string) {
+    setScopes((s) => {
+      const next = new Set(s);
+      if (next.has(id)) {
+        if (next.size > 1) next.delete(id); // require at least one scope
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
-    setErrMsg("");
-    if (scopes.size === 0) {
-      setErrMsg("Select at least one scope.");
-      return;
-    }
     setSubmitting(true);
+    setErrMsg("");
     try {
-      const res = await createKey({ name: name.trim() || "API Key", project_id: projectId || undefined, scopes: [...scopes] });
+      const res = await createKey({
+        name: name.trim() || "API Key",
+        project_id: projectId || undefined,
+        scopes: Array.from(scopes),
+      });
       setPlaintext(res.key);
       setName("");
       refresh();
-      toast.success("API key created — copy the secret now, it won’t be shown again.");
+      toast.success("API key created.");
     } catch {
-      setErrMsg("Could not create key — an admin-scoped session or key is required.");
+      setErrMsg("Could not create key — an admin-scoped session or API key is required.");
     } finally {
       setSubmitting(false);
     }
@@ -75,8 +79,9 @@ export default function KeysPage() {
   async function onRotate(id: string) {
     const ok = await confirm({
       title: "Rotate this key?",
-      description: "The current secret stops working immediately. Any client using it must be updated.",
+      description: "A new key will be generated. The old key will stop working immediately.",
       confirmText: "Rotate key",
+      tone: "danger",
     });
     if (!ok) return;
     setErrMsg("");
@@ -85,7 +90,7 @@ export default function KeysPage() {
       const res = await rotateKey(id);
       setPlaintext(res.key);
       refresh();
-      toast.success("Key rotated — copy the new secret now.");
+      toast.success("Key rotated.");
     } catch {
       setErrMsg("Rotate failed.");
       toast.error("Couldn’t rotate the key.");
@@ -127,24 +132,70 @@ export default function KeysPage() {
     <div className="mx-auto max-w-5xl p-6 lg:p-8">
       <PageHeader icon={KeyRound} title="API Keys" subtitle="Issue, rotate, and revoke keys used to ingest and query data." />
 
-      {/* One-time secret reveal */}
+      {/* One-time secret reveal Popup Dialog */}
       {plaintext && (
-        <Card className="mb-6 border-gray-900 bg-gray-900 p-5 text-white dark:border-white dark:bg-white dark:text-gray-900">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="h-4 w-4" />
-            Copy your new key now — it&rsquo;s shown only once.
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/80 dark:text-emerald-400">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-900 dark:text-white">API Key Created</h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Copy your secret key now. It will not be shown again.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPlaintext(null)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                Secret API Key
+              </label>
+              <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 dark:border-zinc-800 dark:bg-zinc-950/80">
+                <code className="flex-1 select-all break-all font-mono text-xs text-zinc-900 dark:text-zinc-100">
+                  {plaintext}
+                </code>
+                <button
+                  type="button"
+                  onClick={copy}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    copied
+                      ? "bg-emerald-600 text-white"
+                      : "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                  }`}
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  Please store this API key securely in your environment variables or secrets manager. For security reasons, it cannot be retrieved later.
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end border-t border-zinc-100 pt-4 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setPlaintext(null)}
+                className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+              >
+                <Check className="h-3.5 w-3.5" />
+                I have saved my key
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded-lg bg-black/30 px-3 py-2 font-mono text-xs dark:bg-black/5">{plaintext}</code>
-            <button onClick={copy} className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-xs font-medium transition-colors hover:bg-white/25 dark:bg-black/10 dark:hover:bg-black/20">
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-            <button onClick={() => setPlaintext(null)} className="rounded-lg px-3 py-2 text-xs font-medium opacity-70 transition-opacity hover:opacity-100">
-              Dismiss
-            </button>
-          </div>
-        </Card>
+        </div>
       )}
 
       {/* Create */}

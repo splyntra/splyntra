@@ -208,11 +208,11 @@ export default function ProjectsPage() {
 
   const HEAD = (
     <thead className="border-b border-gray-100 bg-gray-50/80 dark:border-gray-800 dark:bg-gray-900/50">
-      <tr className="[&>th]:px-5 [&>th]:py-3 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-gray-500">
-        <th>Name</th>
-        <th>Slug</th>
-        <th>Environment</th>
-        <th>Created</th>
+      <tr className="[&>th]:px-5 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-gray-500">
+        <th className="text-left">Name</th>
+        <th className="text-left">Slug</th>
+        <th className="text-left">Environment</th>
+        <th className="text-left">Created</th>
         <th className="text-right">Actions</th>
       </tr>
     </thead>
@@ -288,7 +288,9 @@ export default function ProjectsPage() {
           </EmptyState>
         ) : (
           <>
-            <table className="w-full text-sm">{HEAD}<tbody className="divide-y divide-gray-100 dark:divide-gray-800">{atc.view.map((p) => renderRow(p, false))}</tbody></table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">{HEAD}<tbody className="divide-y divide-gray-100 dark:divide-gray-800">{atc.view.map((p) => renderRow(p, false))}</tbody></table>
+            </div>
             <TablePagination page={atc.page} pageCount={atc.pageCount} pageSize={atc.pageSize} total={atc.total} onPage={atc.setPage} onPageSize={atc.setPageSize} unit="project" />
           </>
         )}
@@ -299,7 +301,9 @@ export default function ProjectsPage() {
         <>
           <h2 className="mb-3 mt-8 text-[13px] font-semibold uppercase tracking-wider text-gray-500">Archived ({archived.length})</h2>
           <Card className="overflow-hidden">
-            <table className="w-full text-sm">{HEAD}<tbody className="divide-y divide-gray-100 dark:divide-gray-800">{archived.map((p) => renderRow(p, true))}</tbody></table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">{HEAD}<tbody className="divide-y divide-gray-100 dark:divide-gray-800">{archived.map((p) => renderRow(p, true))}</tbody></table>
+            </div>
           </Card>
         </>
       )}
