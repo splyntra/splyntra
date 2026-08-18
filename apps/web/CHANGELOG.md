@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.7.2](https://github.com/splyntra/splyntra/compare/dashboard-v3.7.1...dashboard-v3.7.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* fix bug in project archive ([0da3bc4](https://github.com/splyntra/splyntra/commit/0da3bc4ee796eada7c4bfeb2abc6dec72003a39b))
+* fix bug in project archive ([0da3bc4](https://github.com/splyntra/splyntra/commit/0da3bc4ee796eada7c4bfeb2abc6dec72003a39b))
+* fix bug in project archive ([f380380](https://github.com/splyntra/splyntra/commit/f380380dfc8a8a6a4a697b9f1839ea8eedf7a843))
+
 ## [3.7.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.7.0...dashboard-v3.7.1) (2026-08-17)
 
 
