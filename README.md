@@ -25,17 +25,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/splyntra?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer">
-    <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&theme=light&t=1787068071903" alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" />
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://launchkiwi.com/p/splyntra" target="_blank" rel="noopener noreferrer">
-    <img src="https://launchkiwi.com/badge-light.svg" alt="Featured on LaunchKiwi" height="54" />
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://wired.business" target="_blank" rel="noopener noreferrer">
-    <img src="https://wired.business/badge1-white.svg" alt="Featured on Wired Business" width="200" height="54" />
-  </a>
+  <a href="https://www.producthunt.com/products/splyntra?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&theme=light&t=1787068071903" alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" /></a>&nbsp;&nbsp;<a href="https://launchkiwi.com/p/splyntra" target="_blank" rel="noopener noreferrer"><img src="https://launchkiwi.com/badge-light.svg" alt="Featured on LaunchKiwi" height="54" /></a>&nbsp;&nbsp;<a href="https://wired.business" target="_blank" rel="noopener noreferrer"><img src="https://wired.business/badge1-white.svg" alt="Featured on Wired Business" width="200" height="54" /></a>
 </p>
 
 ---
