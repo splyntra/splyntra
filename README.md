@@ -24,19 +24,9 @@
   <a href="LICENSING.md"><img src="https://img.shields.io/badge/SDKs-Apache--2.0-green.svg" alt="SDKs" /></a>
 </p>
 
-<div align="center" style="margin: 18px 0 10px;">
-  <div style="display:inline-flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px 12px; padding:12px 16px; border:1px solid #d0d7de; border-radius:10px; background:#f6f8fa;">
-    <a href="https://www.producthunt.com/products/splyntra?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; justify-content:center; line-height:0;">
-      <img alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&amp;theme=light&amp;t=1787068071903" style="height:38px; width:auto; max-width:100%; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.08);" />
-    </a>
-    <a href="https://launchkiwi.com/p/splyntra" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; justify-content:center; line-height:0;">
-      <img src="https://launchkiwi.com/badge-light.svg" alt="Featured on LaunchKiwi" width="198" height="62" style="height:38px; width:auto; max-width:100%; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.08);" />
-    </a>
-    <a href="https://wired.business" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; justify-content:center; line-height:0;">
-      <img src="https://wired.business/badge1-white.svg" alt="Featured on Wired Business" width="200" height="54" style="height:38px; width:auto; max-width:100%; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.08);" />
-    </a>
-  </div>
-</div>
+<p align="center">
+  <a href="https://www.producthunt.com/products/splyntra?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-splyntra" target="_blank" rel="noopener noreferrer"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1224406&theme=light&t=1787068071903" alt="Splyntra - Open-source AI agent observability and governance platform | Product Hunt" width="250" height="54" /></a>&nbsp;&nbsp;<a href="https://launchkiwi.com/p/splyntra" target="_blank" rel="noopener noreferrer"><img src="https://launchkiwi.com/badge-light.svg" alt="Featured on LaunchKiwi" height="54" /></a>&nbsp;&nbsp;<a href="https://wired.business" target="_blank" rel="noopener noreferrer"><img src="https://wired.business/badge1-white.svg" alt="Featured on Wired Business" width="200" height="54" /></a>
+</p>
 
 ---
 
