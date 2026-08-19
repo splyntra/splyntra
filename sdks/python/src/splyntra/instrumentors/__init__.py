@@ -24,6 +24,7 @@ from typing import Dict, List, Type
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 
 from splyntra.instrumentors.anthropic import AnthropicInstrumentor
+from splyntra.instrumentors.browser_use import BrowserUseInstrumentor
 from splyntra.instrumentors.chroma import ChromaInstrumentor
 from splyntra.instrumentors.crewai import CrewAIInstrumentor
 from splyntra.instrumentors.google_adk import GoogleADKInstrumentor
@@ -42,6 +43,7 @@ __all__ = [
     "LangGraphInstrumentor",
     "OpenAIAgentsInstrumentor",
     "CrewAIInstrumentor",
+    "BrowserUseInstrumentor",
     "MCPInstrumentor",
     "LlamaIndexInstrumentor",
     "PydanticAIInstrumentor",
@@ -59,6 +61,8 @@ _REGISTRY: Dict[str, Type[BaseInstrumentor]] = {
     "openai-agents": OpenAIAgentsInstrumentor,
     "openai_agents": OpenAIAgentsInstrumentor,
     "crewai": CrewAIInstrumentor,
+    "browser-use": BrowserUseInstrumentor,
+    "browser_use": BrowserUseInstrumentor,
     "mcp": MCPInstrumentor,
     "llamaindex": LlamaIndexInstrumentor,
     "pydantic-ai": PydanticAIInstrumentor,
@@ -76,6 +80,7 @@ _DETECT = {
     "langgraph": "langgraph",
     "openai-agents": "agents",
     "crewai": "crewai",
+    "browser-use": "browser_use",
     "mcp": "mcp",
     "llamaindex": "llama_index",
     "pydantic-ai": "pydantic_ai",

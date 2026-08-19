@@ -377,7 +377,19 @@ export function wrapLLM<T extends (...args: any[]) => any>(fn: T, model: string,
   );
 }
 
-export { instrument, instrumentOpenAI, instrumentAnthropic, instrumentOllama, instrumentLangGraph, instrumentCrewAI, instrumentOpenAIAgents, instrumentMCP, instrumentLlamaIndex, instrumentChroma } from "./instrumentors";
+export {
+  instrument,
+  instrumentOpenAI,
+  instrumentAnthropic,
+  instrumentOllama,
+  instrumentLangGraph,
+  instrumentCrewAI,
+  instrumentBrowserUse,
+  instrumentOpenAIAgents,
+  instrumentMCP,
+  instrumentLlamaIndex,
+  instrumentChroma,
+} from "./instrumentors";
 export { RedactingSpanProcessor, redactString } from "./redaction";
 export { SplyntraBlocked, enforceGuard, configureGuard } from "./guard";
 export type { GuardMode } from "./guard";

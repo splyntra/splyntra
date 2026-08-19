@@ -29,4 +29,10 @@ describe("pick — cross CJS/ESM module resolution", () => {
     expect(pick(undefined, "Nope")).toBeUndefined();
     expect(pick(null, "Nope")).toBeUndefined();
   });
+
+  it("handles missing browser-use package gracefully (safe no-op)", async () => {
+    const { instrumentBrowserUse, instrument } = await import("./index");
+    expect(instrumentBrowserUse()).toBe(false);
+    expect(instrument("browser-use")).toEqual([]);
+  });
 });

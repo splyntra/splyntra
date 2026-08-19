@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: FSL-1.1-ALv2
 """
 Splyntra + LangGraph Quickstart
 ===============================
@@ -51,7 +50,7 @@ def answer_node(state: State) -> State:
 
 
 def build_graph():
-    from langgraph.graph import StateGraph, END
+    from langgraph.graph import END, StateGraph
 
     g = StateGraph(State)
     g.add_node("plan", plan_node)

@@ -1,0 +1,18 @@
+Senior Python & AI Platform Engineer at Stripe
+
+Role Overview:
+We are looking for a Senior Python & AI Platform Engineer to join our API Platform & Agent Infrastructure team. You will build and scale reliable infrastructure powering multi-agent systems and mission-critical payment APIs handling tens of millions of requests per day.
+
+Requirements:
+- 5+ years of production Python development (FastAPI, asyncio, distributed architectures)
+- Deep understanding of REST APIs, gRPC, microservices, and asynchronous event streaming (Kafka/NATS)
+- Experience designing and operating distributed datastores (PostgreSQL, Redis, ClickHouse)
+- Experience instrumenting and optimizing systems with OpenTelemetry / Observability pipelines
+- Familiarity with Kubernetes, Docker, CI/CD pipelines, and cloud security best practices
+- Strong communication, system design, and cross-functional leadership skills
+
+Responsibilities:
+- Architect high-throughput, low-latency API pipelines serving global payment and agent workflows
+- Drive telemetry, guardrails, and compliance standards for internal autonomous services
+- Lead technical design reviews, RFCs, and mentor junior and mid-level engineers
+- Collaborate closely with product managers, security engineers, and infrastructure leads

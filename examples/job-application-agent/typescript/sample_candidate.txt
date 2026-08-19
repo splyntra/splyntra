@@ -1,0 +1,22 @@
+Jane Doe — Senior AI & Platform Engineer
+Email: jane.doe.candidate@example.com
+Phone: +1 (555) 019-2834
+Location: San Francisco, CA
+
+Professional Summary:
+Senior Engineer with 7+ years of experience specializing in high-throughput Python backends, agentic workflow orchestration, and distributed systems. Track record of scaling real-time distributed platforms, decreasing p99 latencies, and implementing OTel observability standards.
+
+Current Role:
+Senior Software Engineer at DataCorp (2021 – Present)
+
+Core Skills:
+Python, FastAPI, Asyncio, CrewAI, LangGraph, OpenTelemetry, PostgreSQL, Redis, ClickHouse, Docker, Kubernetes, AWS, Go.
+
+Key Achievements:
+- Designed and built core API platform scaling from 1M to 15M requests/day with 99.99% uptime.
+- Led technical migration to OpenTelemetry-based distributed tracing, cutting mean-time-to-resolution (MTTR) by 45%.
+- Implemented asynchronous stream processing pipeline with Redis & PostgreSQL, reducing p99 API latency by 40%.
+- Tech lead and mentor for a squad of 5 engineers, establishing design review RFCs and automated testing standards.
+
+Education:
+BS in Computer Science, UC Berkeley
