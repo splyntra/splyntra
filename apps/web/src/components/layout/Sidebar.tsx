@@ -330,10 +330,21 @@ function UserMenu() {
   );
 }
 
-function ProjectSelector() {
+export function ProjectSelector() {
   const { data, isLoading } = useProjects();
   const { projectId, setProjectId } = useProject();
-  const projects = data?.projects || [];
+  const allProjects = data?.projects || [];
+  const projects = allProjects.filter((p) => !p.archived_at);
+
+  // If the currently selected project was archived or deleted, clear the active project selection
+  useEffect(() => {
+    if (projectId && !isLoading && allProjects.length > 0) {
+      const isStillActive = projects.some((p) => p.id === projectId);
+      if (!isStillActive) {
+        setProjectId("");
+      }
+    }
+  }, [projectId, isLoading, allProjects, projects, setProjectId]);
 
   // Skeleton while projects load (first paint / hard refresh) so the control
   // holds its place instead of popping in.
