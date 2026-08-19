@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.3.0](https://github.com/splyntra/splyntra/compare/sdk-v2.2.0...sdk-v2.3.0) (2026-08-19)
+
+
+### Features
+
+* add browser use support for npm sdk ([b67f8f6](https://github.com/splyntra/splyntra/commit/b67f8f6fc3a1ff52dff8337cf423ec59578021cc))
+* add browser use support for npm sdk ([cccb61a](https://github.com/splyntra/splyntra/commit/cccb61a716f929ae7fc0f042b83ff9f7603f06d0))
+
+
+### Bug Fixes
+
+* add browser use support for npm sdk ([b67f8f6](https://github.com/splyntra/splyntra/commit/b67f8f6fc3a1ff52dff8337cf423ec59578021cc))
+
 ## [2.2.0](https://github.com/splyntra/splyntra/compare/sdk-v2.1.0...sdk-v2.2.0) (2026-08-19)
 
 
