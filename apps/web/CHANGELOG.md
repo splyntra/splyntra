@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.8.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.8.0...dashboard-v3.8.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* fix project archive still active issue ([d3121fd](https://github.com/splyntra/splyntra/commit/d3121fd6dedaf271d21430246029f6ba9c3b29b4))
+* fix project archive still active issue ([0b33b95](https://github.com/splyntra/splyntra/commit/0b33b95b3bfbdda9cf8f854131e6a19104d8d0f3))
+* Merge pull request [#63](https://github.com/splyntra/splyntra/issues/63) from anandkr47/feature/browser_use ([d3121fd](https://github.com/splyntra/splyntra/commit/d3121fd6dedaf271d21430246029f6ba9c3b29b4))
+
 ## [3.8.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.7.2...dashboard-v3.8.0) (2026-08-19)
 
 
