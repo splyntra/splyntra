@@ -215,7 +215,10 @@ export default function KeysPage() {
                 value={projectId}
                 onValueChange={setProjectId}
                 ariaLabel="Scope to project"
-                options={[{ value: "", label: "Org-wide (all projects)" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+                options={[
+                  { value: "", label: "Org-wide (all projects)" },
+                  ...projects.filter((p) => !p.archived_at).map((p) => ({ value: p.id, label: p.name })),
+                ]}
               />
             </label>
           </div>
