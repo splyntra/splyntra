@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.8.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.7.2...dashboard-v3.8.0) (2026-08-19)
+
+
+### Features
+
+* add browser use support ([e30e8ad](https://github.com/splyntra/splyntra/commit/e30e8ad6977ad1c6e70b254ed3907e397060e069))
+* add browser use support ([ddacfa6](https://github.com/splyntra/splyntra/commit/ddacfa6173783509128a14eeff303283f9927ebf))
+* add browser use support Merge pull request [#59](https://github.com/splyntra/splyntra/issues/59) from anandkr47/feature/browser_use ([e30e8ad](https://github.com/splyntra/splyntra/commit/e30e8ad6977ad1c6e70b254ed3907e397060e069))
+
 ## [3.7.2](https://github.com/splyntra/splyntra/compare/dashboard-v3.7.1...dashboard-v3.7.2) (2026-08-18)
 
 
