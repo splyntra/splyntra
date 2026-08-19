@@ -21,7 +21,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 # Directories to scan, relative to repo root.
-SCAN_DIRS = ["apps", "sdks", "examples", "tests", "scripts"]
+# Examples are intentionally excluded from SPDX enforcement because they are
+# illustrative sample code and not part of the licensed product surface.
+SCAN_DIRS = ["apps", "sdks", "tests", "scripts"]
 EXCLUDE_PARTS = {"node_modules", ".next", "dist", "__pycache__", ".venv", "venv", "bin", "vendor"}
 
 # Extension -> comment prefix.

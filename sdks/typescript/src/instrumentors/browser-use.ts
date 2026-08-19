@@ -19,7 +19,9 @@ export function instrumentBrowserUse(): boolean {
   return patchDual(["browser-use", "@browser-use/core", "@browser-use/agent"], patchBrowserUse);
 }
 
-function patchBrowserUse(mod: unknown): boolean {
+// Exported for unit tests (not re-exported by the package barrels — the public
+// entry point exposes only `instrumentBrowserUse`).
+export function patchBrowserUse(mod: unknown): boolean {
   const Agent = pick(mod, "Agent") as { prototype?: any } | undefined;
   const Controller = pick(mod, "Controller") as { prototype?: any } | undefined;
 
@@ -44,19 +46,21 @@ function patchBrowserUse(mod: unknown): boolean {
       })
     ) || wrapped;
 
-  // 2. Wrap Agent.prototype.step
+  // 2. Wrap the Agent's per-step method. In browser-use's TypeScript port the
+  // public method is `takeStep` (`step`/`stepAsync` are legacy/other ports); the
+  // step counter lives at `agent.state.n_steps`, not `agent.n_steps`.
   wrapped =
     wrapMethod(
       Agent?.prototype,
-      ["step", "stepAsync"],
+      ["takeStep", "step", "stepAsync", "_step"],
       "step",
       (self) => {
-        const stepNum = self?.n_steps ?? self?.stepCount ?? 0;
+        const stepNum = self?.state?.n_steps ?? self?.n_steps ?? self?.stepCount ?? 0;
         return `browser_use.step_${stepNum}`;
       },
       (self) => ({
         "splyntra.framework": "browser-use",
-        "browser.step_number": self?.n_steps ?? self?.stepCount ?? 0,
+        "browser.step_number": self?.state?.n_steps ?? self?.n_steps ?? self?.stepCount ?? 0,
       })
     ) || wrapped;
 
