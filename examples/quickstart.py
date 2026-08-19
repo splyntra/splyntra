@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: FSL-1.1-ALv2
 """
 Splyntra Quickstart Example
 ============================
@@ -14,7 +13,7 @@ Run:
 Then open http://localhost:3000/traces to see your trace.
 """
 
-from splyntra import Splyntra, trace_agent, trace_tool, trace_llm
+from splyntra import Splyntra, trace_agent, trace_llm, trace_tool
 
 # 1. Initialize Splyntra (one line)
 splyntra = Splyntra(

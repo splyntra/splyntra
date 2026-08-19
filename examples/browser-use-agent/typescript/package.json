@@ -1,0 +1,20 @@
+{
+  "name": "@splyntra-examples/browser-use-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production Browser Agent with Splyntra Observability & Security Governance",
+  "scripts": {
+    "start": "tsx agent.ts",
+    "mock": "tsx agent.ts --mock",
+    "demo:injection": "tsx agent.ts --mock --demo-web-injection --guard block",
+    "demo:url-block": "tsx agent.ts --mock --demo-url-block"
+  },
+  "dependencies": {
+    "@splyntra/sdk": "link:../../../sdks/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

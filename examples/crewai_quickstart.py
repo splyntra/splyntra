@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: FSL-1.1-ALv2
 """Splyntra + CrewAI Quickstart
 =================================
 Auto-instrument a CrewAI crew — every crew kickoff, task, and tool call becomes
@@ -26,7 +25,7 @@ Splyntra(
 )
 
 # 2. Build a normal CrewAI crew — no Splyntra-specific code below this line.
-from crewai import Agent, Crew, Task  # noqa: E402
+from crewai import Agent, Crew, Task
 
 researcher = Agent(
     role="Researcher",

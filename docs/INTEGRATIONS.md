@@ -51,7 +51,20 @@ Splyntra(api_key="splyntra_dev_key", project="my-app",
 
 Crew kickoff → `agent` span; each task → `step` span; tools → `tool_call`; LLM
 calls (via the OpenAI adapter) → `llm_call`. See
-[`examples/crewai_quickstart.py`](../examples/crewai_quickstart.py).
+[`examples/crewai_quickstart.py`](../examples/crewai_quickstart.py) and the full multi-agent
+[`examples/job-application-agent/`](../examples/job-application-agent/).
+
+## Browser Use (in-process)
+
+```python
+from splyntra import Splyntra
+Splyntra(api_key="splyntra_dev_key", project="my-app",
+         framework="browser-use", instrument=("browser-use", "openai"))
+# ...build and run your browser agent as usual.
+```
+
+Agent run → `agent` span; each step → `step` span; controller actions (`navigate`, `click`, `type`, `extract`, `screenshot`) → `tool_call` spans with URL allowlisting and indirect prompt injection defense. See
+[`examples/browser-use-agent/`](../examples/browser-use-agent/).
 
 Other in-process frameworks work identically — just change the `instrument`
 tuple (e.g. `("anthropic",)`, `("ollama",)`, `("langgraph",)`,

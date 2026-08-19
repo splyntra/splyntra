@@ -20,6 +20,7 @@ export const FRAMEWORKS: Framework[] = [
   { id: "ollama", label: "Ollama", blurb: "Local models (chat / generate).", icon: "Cpu" },
   { id: "langgraph", label: "LangGraph", blurb: "Compiled-graph invoke spans.", icon: "GitBranch" },
   { id: "crewai", label: "CrewAI", blurb: "Crew / task / tool spans.", icon: "Users" },
+  { id: "browser-use", label: "Browser Use", blurb: "Browser automation, steps, & tool spans.", icon: "Globe" },
   { id: "openai-agents", label: "OpenAI Agents", blurb: "Runner.run agent spans.", icon: "Bot" },
   { id: "mcp", label: "MCP", blurb: "Model Context Protocol tool calls.", icon: "Plug" },
 ];

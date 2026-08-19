@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: FSL-1.1-ALv2
 """
 Splyntra Security Demo
 =======================
@@ -18,7 +17,8 @@ Then open http://localhost:3000/traces to see flagged detections.
 """
 
 import time
-from splyntra import Splyntra, trace_agent, trace_tool, trace_llm
+
+from splyntra import Splyntra, trace_agent, trace_llm, trace_tool
 
 # Initialize
 splyntra = Splyntra(

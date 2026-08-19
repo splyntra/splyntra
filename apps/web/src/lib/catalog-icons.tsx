@@ -5,12 +5,12 @@
 // Platforms page, and the MCP Servers page.
 import {
   Boxes, Sparkles, Workflow, Database, Server, BrainCircuit, Cpu, GitBranch,
-  Users, Bot, Share2, Cloud, MessagesSquare, Search, Plug, type LucideIcon,
+  Users, Bot, Share2, Cloud, MessagesSquare, Search, Plug, Globe, type LucideIcon,
 } from "lucide-react";
 
 const MAP: Record<string, LucideIcon> = {
   Boxes, Sparkles, Workflow, Database, Server, BrainCircuit, Cpu, GitBranch,
-  Users, Bot, Share2, Cloud, MessagesSquare, Search, Plug,
+  Users, Bot, Share2, Cloud, MessagesSquare, Search, Plug, Globe,
 };
 
 export function catalogIcon(name: string): LucideIcon {

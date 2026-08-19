@@ -1,0 +1,21 @@
+{
+  "name": "@splyntra-examples/job-application-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production Multi-Agent Job Application System with Splyntra Observability",
+  "scripts": {
+    "start": "tsx agent.ts",
+    "mock": "tsx agent.ts --mock",
+    "eval": "tsx agent.ts --eval",
+    "demo:approval": "tsx agent.ts --mock --demo-approval",
+    "demo:injection": "tsx agent.ts --mock --demo-injection --guard block"
+  },
+  "dependencies": {
+    "@splyntra/sdk": "link:../../../sdks/typescript"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

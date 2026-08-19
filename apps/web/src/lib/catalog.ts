@@ -51,6 +51,7 @@ export const CATALOG: Integration[] = [
   { id: "ollama", name: "Ollama", category: "framework", method: "sdk", tier: ["native"], icon: "Cpu", blurb: "Local models (chat / generate).", instrument: "ollama" },
   { id: "langgraph", name: "LangGraph", category: "framework", method: "sdk", tier: ["native"], icon: "GitBranch", blurb: "Compiled-graph invoke spans.", instrument: "langgraph" },
   { id: "crewai", name: "CrewAI", category: "framework", method: "sdk", tier: ["native"], icon: "Users", blurb: "Crew / task / tool spans.", instrument: "crewai" },
+  { id: "browser-use", name: "Browser Use", category: "framework", method: "sdk", tier: ["native"], icon: "Globe", blurb: "Browser automation, steps, & tool spans.", instrument: "browser-use" },
   { id: "openai-agents", name: "OpenAI Agents", category: "framework", method: "sdk", tier: ["native"], icon: "Bot", blurb: "Runner.run agent spans.", instrument: "openai-agents" },
   { id: "llamaindex", name: "LlamaIndex", category: "framework", method: "sdk", tier: ["native"], icon: "Boxes", blurb: "Query engine + workflow + retrieval spans.", instrument: "llamaindex" },
   { id: "pydantic-ai", name: "Pydantic AI", category: "framework", method: "sdk", tier: ["native"], icon: "Bot", blurb: "Agent.run agent + tool spans.", instrument: "pydantic-ai" },

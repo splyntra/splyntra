@@ -98,6 +98,8 @@ const run = wrapAgent(async (q: string) => { /* ... */ }, "support_agent", "refu
 ```bash
 python examples/langgraph_quickstart.py   # LangGraph path (DoD #1)
 python examples/crewai_quickstart.py      # CrewAI crew
+python examples/job-application-agent/python/agent.py --mock # Multi-agent CrewAI job application pipeline
+python examples/browser-use-agent/python/agent.py --mock # Autonomous browser agent with URL governance
 python examples/quickstart.py             # framework-free, decorator-based
 python examples/security_demo.py          # deliberately leaks secrets + PII
 ```

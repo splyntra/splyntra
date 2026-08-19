@@ -35,6 +35,9 @@ def _install_fake_mcp(monkeypatch):
 
 
 def test_mcp_tool_call_emits_span(monkeypatch):
+    trace._TRACER_PROVIDER = None
+    if hasattr(trace, "_TRACER_PROVIDER_SET_ONCE"):
+        trace._TRACER_PROVIDER_SET_ONCE._done = False
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
