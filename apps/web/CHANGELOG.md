@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.9.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.8.1...dashboard-v3.9.0) (2026-08-20)
+
+
+### Features
+
+* fix project and cost ui ([4479822](https://github.com/splyntra/splyntra/commit/4479822599afdc39598632b11152529c22e1d0d4))
+
+
+### Bug Fixes
+
+* fix project and cost ui ([4479822](https://github.com/splyntra/splyntra/commit/4479822599afdc39598632b11152529c22e1d0d4))
+* fix project and cost ui ([96f4da6](https://github.com/splyntra/splyntra/commit/96f4da620ecfd91d845bd013abcb93cff4b634fc))
+
 ## [3.8.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.8.0...dashboard-v3.8.1) (2026-08-19)
 
 
