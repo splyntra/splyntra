@@ -352,8 +352,12 @@ type LogFilter struct {
 // QueryLogs returns a page of structured logs matching the filter + total count.
 // Source/platform scope is applied via the traces table (logs carry trace_id).
 func (s *ClickHouseStore) QueryLogs(ctx context.Context, orgID, projectID string, f LogFilter) ([]LogRow, uint64, error) {
-	where := "org_id = ? AND project_id = ?"
-	args := []any{orgID, projectID}
+	where := "org_id = ?"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if f.AgentID != "" {
 		where += " AND agent_id = ?"
 		args = append(args, f.AgentID)
@@ -380,13 +384,13 @@ func (s *ClickHouseStore) QueryLogs(ctx context.Context, orgID, projectID string
 	}
 
 	var total uint64
-	if err := s.conn.QueryRow(ctx, "SELECT count() FROM logs WHERE "+where, args...).Scan(&total); err != nil {
+	if err := s.conn.QueryRow(ctx, "SELECT count() FROM logs FINAL WHERE "+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count logs: %w", err)
 	}
 
 	limit := f.Limit
-	if limit <= 0 || limit > 200 {
-		limit = 50
+	if limit <= 0 || limit > 500 {
+		limit = 100
 	}
 	offset := f.Offset
 	if offset < 0 {
@@ -394,10 +398,15 @@ func (s *ClickHouseStore) QueryLogs(ctx context.Context, orgID, projectID string
 	}
 	pageArgs := append(append([]any{}, args...), limit, offset)
 	rows, err := s.conn.Query(ctx, `
-		SELECT timestamp, agent_id, trace_id, span_id, severity, body, attributes
-		FROM logs WHERE `+where+`
+		SELECT
+			timestamp, trace_id, span_id, agent_id, environment,
+			severity, body, attributes
+		FROM logs FINAL
+		WHERE `+where+`
 		ORDER BY timestamp DESC
-		LIMIT ? OFFSET ?`, pageArgs...)
+		LIMIT ? OFFSET ?`,
+		pageArgs...,
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query logs: %w", err)
 	}
@@ -405,12 +414,48 @@ func (s *ClickHouseStore) QueryLogs(ctx context.Context, orgID, projectID string
 	var out []LogRow
 	for rows.Next() {
 		var l LogRow
-		if err := rows.Scan(&l.Timestamp, &l.AgentID, &l.TraceID, &l.SpanID, &l.Severity, &l.Body, &l.Attributes); err != nil {
+		if err := rows.Scan(&l.Timestamp, &l.TraceID, &l.SpanID, &l.AgentID, &l.Severity, &l.Body, &l.Attributes); err != nil {
 			return nil, 0, fmt.Errorf("scan log: %w", err)
 		}
 		out = append(out, l)
 	}
 	return out, total, rows.Err()
+}
+
+// sourceWhere returns a `where` clause and its `args` narrowed to the specified
+// source domain. If `platform` is set, narrows to traces.platform = platform.
+// Otherwise, if `source` is "agent", narrows to platform = '' (SDK-instrumented
+// agents only); if `source` is "platform", narrows to platform <> '' (orchestrators).
+// When neither is specified, returns the input where/args unchanged.
+func sourceWhere(where string, args []any, source, platform string) (string, []any) {
+	if platform != "" {
+		return where + " AND platform = ?", append(args, platform)
+	}
+	switch source {
+	case "agent":
+		return where + " AND platform = ''", args
+	case "platform":
+		return where + " AND platform <> ''", args
+	}
+	return where, args
+}
+
+// traceScopeSubquery returns an `AND trace_id IN (…)` clause (+ args) restricting
+// a detections/spans query to traces of a given source domain. Those tables don't
+// carry `platform`, so the domain filter is applied via a subquery on `traces`.
+// Returns "" when no scoping is requested (source "" and no platform id).
+func traceScopeSubquery(orgID, projectID, source, platform string) (string, []any) {
+	if platform == "" && source != "agent" && source != "platform" {
+		return "", nil
+	}
+	baseWhere := "org_id = ?"
+	baseArgs := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		baseWhere += " AND project_id = ?"
+		baseArgs = append(baseArgs, projectID)
+	}
+	sw, swArgs := sourceWhere(baseWhere, baseArgs, source, platform)
+	return " AND trace_id IN (SELECT trace_id FROM traces WHERE " + sw + ")", swArgs
 }
 
 func (s *ClickHouseStore) flushTraces(traces []*streaming.TraceEvent) {
@@ -563,42 +608,16 @@ type TraceFilter struct {
 	Platform string
 }
 
-// sourceWhere appends a platform-domain scoping clause to a WHERE fragment and
-// returns the extended clause + args. It is the single place the Agents vs Agent
-// Platforms separation is enforced at the query layer. An explicit platform id
-// wins over source; source "agent"→platform='', "platform"→platform<>'',
-// ""→no clause (fleet/all).
-func sourceWhere(where string, args []any, source, platform string) (string, []any) {
-	if platform != "" {
-		return where + " AND platform = ?", append(args, platform)
-	}
-	switch source {
-	case "agent":
-		return where + " AND platform = ''", args
-	case "platform":
-		return where + " AND platform <> ''", args
-	}
-	return where, args
-}
-
-// traceScopeSubquery returns an `AND trace_id IN (…)` clause (+ args) restricting
-// a detections/spans query to traces of a given source domain. Those tables don't
-// carry `platform`, so the domain filter is applied via a subquery on `traces`.
-// Returns "" when no scoping is requested (source "" and no platform id).
-func traceScopeSubquery(orgID, projectID, source, platform string) (string, []any) {
-	if platform == "" && source != "agent" && source != "platform" {
-		return "", nil
-	}
-	sw, swArgs := sourceWhere("org_id = ? AND project_id = ?", []any{orgID, projectID}, source, platform)
-	return " AND trace_id IN (SELECT trace_id FROM traces WHERE " + sw + ")", swArgs
-}
-
 // QueryTraces returns a page of traces matching the filter, plus the TOTAL count
 // of matches (for real pagination). All filters are applied to both queries and
-// every query is org+project scoped.
+// every query is org-scoped (and optionally project-scoped).
 func (s *ClickHouseStore) QueryTraces(ctx context.Context, orgID, projectID string, f TraceFilter) ([]TraceRow, uint64, error) {
-	where := "org_id = ? AND project_id = ?"
-	args := []any{orgID, projectID}
+	where := "org_id = ?"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if f.AgentID != "" {
 		where += " AND agent_id = ?"
 		args = append(args, f.AgentID)
@@ -671,6 +690,12 @@ func (s *ClickHouseStore) QueryTraces(ctx context.Context, orgID, projectID stri
 
 // QuerySpans returns all spans for a trace, scoped to a tenant.
 func (s *ClickHouseStore) QuerySpans(ctx context.Context, traceID, orgID, projectID string) ([]SpanRow, error) {
+	where := "trace_id = ? AND org_id = ?"
+	args := []any{traceID, orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	rows, err := s.conn.Query(ctx, `
 		SELECT
 			trace_id, span_id, parent_span_id, type, name, status,
@@ -678,10 +703,10 @@ func (s *ClickHouseStore) QuerySpans(ctx context.Context, traceID, orgID, projec
 			input_preview, output_preview,
 			attributes, started_at
 		FROM spans FINAL
-		WHERE trace_id = ? AND org_id = ? AND project_id = ?
+		WHERE `+where+`
 		ORDER BY started_at ASC
 		LIMIT 5000`,
-		traceID, orgID, projectID,
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query spans: %w", err)
@@ -725,8 +750,12 @@ type IncidentFilter struct {
 // Incidents feed), with filters + pagination, plus the total match count.
 // Severity is an Enum8 (LOW=1..CRITICAL=4), so `severity >= ?` gives a floor.
 func (s *ClickHouseStore) QueryIncidents(ctx context.Context, orgID, projectID string, f IncidentFilter) ([]DetectionRow, uint64, error) {
-	where := "org_id = ? AND project_id = ?"
-	args := []any{orgID, projectID}
+	where := "org_id = ?"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if f.AgentID != "" {
 		where += " AND agent_id = ?"
 		args = append(args, f.AgentID)
@@ -811,8 +840,12 @@ type AgentCount struct {
 // dashboard's summary strip, honoring the same filters as QueryIncidents (minus
 // pagination) so the rollup matches the feed the reader is looking at.
 func (s *ClickHouseStore) QueryIncidentSummary(ctx context.Context, orgID, projectID string, f IncidentFilter) (*IncidentSummary, error) {
-	where := "org_id = ? AND project_id = ?"
-	args := []any{orgID, projectID}
+	where := "org_id = ?"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if f.AgentID != "" {
 		where += " AND agent_id = ?"
 		args = append(args, f.AgentID)
@@ -986,14 +1019,20 @@ func (s *ClickHouseStore) Ping(ctx context.Context) error {
 // and timing), or nil if not found. The detail view uses this so its risk/agent/
 // timing match the list instead of being recomputed client-side.
 func (s *ClickHouseStore) QueryTraceByID(ctx context.Context, traceID, orgID, projectID string) (*TraceRow, error) {
+	where := "trace_id = ? AND org_id = ?"
+	args := []any{traceID, orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	rows, err := s.conn.Query(ctx, `
 		SELECT trace_id, agent_id, platform, workflow_id, workflow_name, status, latency_ms, total_tokens,
 		       cost_usd, risk_score, risk_severity, detection_count, span_count,
 		       started_at, completed_at
 		FROM traces FINAL
-		WHERE trace_id = ? AND org_id = ? AND project_id = ?
+		WHERE `+where+`
 		LIMIT 1`,
-		traceID, orgID, projectID,
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query trace by id: %w", err)
@@ -1054,8 +1093,12 @@ type AgentRow struct {
 func (s *ClickHouseStore) QueryAgents(ctx context.Context, orgID, projectID string, windowSec int) ([]AgentRow, error) {
 	// platform = '' keeps Agents strictly SDK-instrumented agents; orchestrator
 	// (platform) runs live in the Agent Platforms domain, never here.
-	where := "org_id = ? AND project_id = ? AND platform = ''"
-	args := []any{orgID, projectID}
+	where := "org_id = ? AND platform = ''"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if windowSec > 0 {
 		where += " AND started_at >= now() - toIntervalSecond(?)"
 		args = append(args, windowSec)
@@ -1119,8 +1162,12 @@ type PlatformRow struct {
 // QueryPlatforms returns per-platform run aggregates (Agent Platforms domain).
 // Only platform (orchestrator) runs are considered — platform <> ''.
 func (s *ClickHouseStore) QueryPlatforms(ctx context.Context, orgID, projectID string, windowSec int) ([]PlatformRow, error) {
-	where := "org_id = ? AND project_id = ? AND platform <> ''"
-	args := []any{orgID, projectID}
+	where := "org_id = ? AND platform <> ''"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if windowSec > 0 {
 		where += " AND started_at >= now() - toIntervalSecond(?)"
 		args = append(args, windowSec)
@@ -1178,8 +1225,16 @@ type WorkflowRow struct {
 
 // QueryWorkflows returns per-workflow aggregates for one platform.
 func (s *ClickHouseStore) QueryWorkflows(ctx context.Context, orgID, projectID, platform string, windowSec int) ([]WorkflowRow, error) {
-	where := "org_id = ? AND project_id = ? AND platform = ?"
-	args := []any{orgID, projectID, platform}
+	where := "org_id = ?"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
+	if platform != "" {
+		where += " AND platform = ?"
+		args = append(args, platform)
+	}
 	if windowSec > 0 {
 		where += " AND started_at >= now() - toIntervalSecond(?)"
 		args = append(args, windowSec)
@@ -1235,11 +1290,21 @@ type CostRow struct {
 // single agent; source/platform scope to a domain (Agents vs Agent Platforms).
 func (s *ClickHouseStore) QueryCosts(ctx context.Context, orgID, projectID, agentID, source, platform string) ([]CostRow, error) {
 	// spans carry no agent_id/platform; scope via the traces roll-up when asked.
-	where := "org_id = ? AND project_id = ? AND model != ''"
-	args := []any{orgID, projectID}
+	where := "org_id = ? AND model != ''"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if agentID != "" {
-		where += " AND trace_id IN (SELECT trace_id FROM traces FINAL WHERE org_id = ? AND project_id = ? AND agent_id = ?)"
-		args = append(args, orgID, projectID, agentID)
+		subWhere := "org_id = ? AND agent_id = ?"
+		subArgs := []any{orgID, agentID}
+		if projectID != "" && projectID != "*" && projectID != "all" {
+			subWhere += " AND project_id = ?"
+			subArgs = append(subArgs, projectID)
+		}
+		where += " AND trace_id IN (SELECT trace_id FROM traces FINAL WHERE " + subWhere + ")"
+		args = append(args, subArgs...)
 	}
 	if clause, subArgs := traceScopeSubquery(orgID, projectID, source, platform); clause != "" {
 		where += clause
@@ -1304,8 +1369,12 @@ type WorkflowCostRow struct {
 // QueryCostByWorkflow returns spend grouped by workflow_id for a project. A
 // non-empty platform narrows to that platform's workflows (Agent Platforms view).
 func (s *ClickHouseStore) QueryCostByWorkflow(ctx context.Context, orgID, projectID, platform string) ([]WorkflowCostRow, error) {
-	where := "org_id = ? AND project_id = ? AND workflow_id != ''"
-	args := []any{orgID, projectID}
+	where := "org_id = ? AND workflow_id != ''"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if platform != "" {
 		where += " AND platform = ?"
 		args = append(args, platform)
@@ -1380,8 +1449,12 @@ type CostSummary struct {
 }
 
 func (s *ClickHouseStore) QueryCostSummary(ctx context.Context, orgID, projectID, source, platform string) (*CostSummary, error) {
-	where := "org_id = ? AND project_id = ? AND model != ''"
-	args := []any{orgID, projectID}
+	where := "org_id = ? AND model != ''"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if clause, subArgs := traceScopeSubquery(orgID, projectID, source, platform); clause != "" {
 		where += clause
 		args = append(args, subArgs...)
@@ -1463,8 +1536,12 @@ func (s *ClickHouseStore) QuerySpanMetrics(ctx context.Context, orgID, projectID
 	if f.Group == "mcp_server" {
 		keyExpr = "attributes['mcp.server.name']"
 	}
-	where := "org_id = ? AND project_id = ?"
-	args := []any{orgID, projectID}
+	where := "org_id = ?"
+	args := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if f.Type != "" {
 		where += " AND type = ?"
 		args = append(args, f.Type)
@@ -1511,11 +1588,17 @@ func (s *ClickHouseStore) QuerySpanMetrics(ctx context.Context, orgID, projectID
 
 	// Flagged = spans in each group that have a security detection (the
 	// "permission violations / risk" signal). Join spans → detections by span_id.
+	fDetWhere := "org_id = ?"
+	fDetArgs := []any{orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		fDetWhere += " AND project_id = ?"
+		fDetArgs = append(fDetArgs, projectID)
+	}
 	frows, err := s.conn.Query(ctx, `
 		SELECT `+keyExpr+` AS k, count() AS f
 		FROM spans FINAL
-		WHERE `+where+` AND span_id IN (SELECT span_id FROM detections WHERE org_id = ? AND project_id = ?)
-		GROUP BY k`, append(append([]any{}, args...), orgID, projectID)...)
+		WHERE `+where+` AND span_id IN (SELECT span_id FROM detections WHERE `+fDetWhere+`)
+		GROUP BY k`, append(append([]any{}, args...), fDetArgs...)...)
 	if err == nil {
 		defer frows.Close()
 		for frows.Next() {
@@ -1545,15 +1628,25 @@ func (s *ClickHouseStore) QueryMetricsTimeseries(ctx context.Context, orgID, pro
 		offset = 0
 	}
 
-	where := "org_id = ? AND project_id = ?"
-	args := []any{interval, orgID, projectID}
+	where := "org_id = ?"
+	args := []any{interval, orgID}
+	if projectID != "" && projectID != "*" && projectID != "all" {
+		where += " AND project_id = ?"
+		args = append(args, projectID)
+	}
 	if f.AgentID != "" {
 		where += " AND agent_id = ?"
 		args = append(args, f.AgentID)
 	}
 	if f.Model != "" {
-		where += " AND agent_id != '' AND trace_id IN (SELECT DISTINCT trace_id FROM spans FINAL WHERE org_id = ? AND project_id = ? AND model = ?)"
-		args = append(args, orgID, projectID, f.Model)
+		subWhere := "org_id = ? AND model = ?"
+		subArgs := []any{orgID, f.Model}
+		if projectID != "" && projectID != "*" && projectID != "all" {
+			subWhere += " AND project_id = ?"
+			subArgs = append(subArgs, projectID)
+		}
+		where += " AND agent_id != '' AND trace_id IN (SELECT DISTINCT trace_id FROM spans FINAL WHERE " + subWhere + ")"
+		args = append(args, subArgs...)
 	}
 	where, args = sourceWhere(where, args, f.Source, f.Platform)
 	// Trailing window shifted back by offset (offset=window → previous period).

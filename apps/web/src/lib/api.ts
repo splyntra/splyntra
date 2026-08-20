@@ -25,8 +25,10 @@ export function setActiveProject(projectId: string): void {
 /** Append the active (or supplied) project id as a query param when set. */
 function withProject(url: string, projectId?: string): string {
   const pid = projectId ?? getActiveProject();
-  if (!pid) return url;
-  return url + (url.includes("?") ? "&" : "?") + `project_id=${encodeURIComponent(pid)}`;
+  if (pid) {
+    return url + (url.includes("?") ? "&" : "?") + `project_id=${encodeURIComponent(pid)}`;
+  }
+  return url + (url.includes("?") ? "&" : "?") + "project_id=*";
 }
 
 // Exported so commercial dashboard screens (composed in at cloud-build time)

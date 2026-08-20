@@ -108,10 +108,19 @@ func (s *PostgresStore) AgentMetaByID(ctx context.Context, orgID, projectID stri
 	if s == nil || s.db == nil || !uuidRe.MatchString(orgID) {
 		return out, nil
 	}
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT agent_id, name, COALESCE(framework, ''), first_seen_at
-		FROM agents WHERE org_id = $1 AND project_id = $2
-	`, orgID, projectID)
+	var rows *sql.Rows
+	var err error
+	if projectID == "" || projectID == "*" || projectID == "all" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT agent_id, name, COALESCE(framework, ''), first_seen_at
+			FROM agents WHERE org_id = $1
+		`, orgID)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT agent_id, name, COALESCE(framework, ''), first_seen_at
+			FROM agents WHERE org_id = $1 AND project_id = $2
+		`, orgID, projectID)
+	}
 	if err != nil {
 		return out, fmt.Errorf("query agent meta: %w", err)
 	}

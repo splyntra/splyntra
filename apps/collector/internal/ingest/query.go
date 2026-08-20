@@ -33,12 +33,19 @@ func NewQueryHandler(logger *zap.Logger, chStore *store.ClickHouseStore, pgStore
 }
 
 // effectiveProject returns the project to scope a query to. A ?project_id query
-// param overrides the API key's default project; tenant isolation is preserved
-// because every store query also filters on org_id, so a caller can only ever
-// reach projects within their own organization.
+// param overrides the API key's default project. When project_id is empty, "*",
+// or "all", it returns "" to indicate org-wide (all projects in the organization).
+// Tenant isolation is preserved because every store query also filters on org_id.
 func effectiveProject(r *http.Request, t *auth.TenantInfo) string {
-	if p := r.URL.Query().Get("project_id"); p != "" {
+	if r.URL.Query().Has("project_id") {
+		p := r.URL.Query().Get("project_id")
+		if p == "*" || p == "all" || p == "" {
+			return ""
+		}
 		return p
+	}
+	if t.ProjectID == "*" || t.ProjectID == "all" {
+		return ""
 	}
 	return t.ProjectID
 }
