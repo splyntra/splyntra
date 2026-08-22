@@ -31,9 +31,10 @@ vi.mock("../../lib/org-path", () => ({
   useOrgSlug: () => "org1",
 }));
 
+const mockSlotWidgets = vi.fn();
 vi.mock("../../lib/slots", () => ({
   navSlotItems: () => [],
-  slotWidgets: () => [],
+  slotWidgets: (slot: string) => mockSlotWidgets(slot) || [],
   usePlanFeatures: () => null,
 }));
 
@@ -236,5 +237,32 @@ describe("Sidebar", () => {
 
     fireEvent.keyDown(window, { key: "b", metaKey: true });
     expect(sidebar).toHaveClass("w-64");
+  });
+
+  it("passes collapsed prop to sidebarTop and sidebarBottom widgets", () => {
+    const TopWidget = vi.fn(({ collapsed }: { collapsed?: boolean }) => (
+      <div data-testid="top-widget">TopWidget-{collapsed ? "collapsed" : "expanded"}</div>
+    ));
+    const BottomWidget = vi.fn(({ collapsed }: { collapsed?: boolean }) => (
+      <div data-testid="bottom-widget">BottomWidget-{collapsed ? "collapsed" : "expanded"}</div>
+    ));
+
+    mockSlotWidgets.mockImplementation((slot: string) => {
+      if (slot === "sidebarTop") return [TopWidget];
+      if (slot === "sidebarBottom") return [BottomWidget];
+      return [];
+    });
+
+    render(<Sidebar />);
+
+    expect(screen.getByTestId("top-widget")).toHaveTextContent("TopWidget-expanded");
+    expect(screen.getByTestId("bottom-widget")).toHaveTextContent("BottomWidget-expanded");
+
+    // Toggle collapse
+    const collapseButton = screen.getByRole("button", { name: /Collapse sidebar/i });
+    fireEvent.click(collapseButton);
+
+    expect(screen.getByTestId("top-widget")).toHaveTextContent("TopWidget-collapsed");
+    expect(screen.getByTestId("bottom-widget")).toHaveTextContent("BottomWidget-collapsed");
   });
 });
