@@ -76,13 +76,17 @@ export function settingsNavItems(): readonly SettingsNavItem[] {
 // (e.g. the org switcher in the sidebar). Empty in OSS.
 import type { ComponentType } from "react";
 
+export interface WidgetProps {
+  collapsed?: boolean;
+}
+
 export type WidgetSlot =
   | "brandActions"
   | "sidebarTop"
   | "sidebarBottom"
   | "agentTrustGovernance";
 
-const widgets: Record<WidgetSlot, ComponentType[]> = {
+const widgets: Record<WidgetSlot, ComponentType<WidgetProps>[]> = {
   brandActions: [],
   sidebarTop: [],
   sidebarBottom: [],
@@ -90,12 +94,12 @@ const widgets: Record<WidgetSlot, ComponentType[]> = {
 };
 
 /** Mount a component into a named widget slot. Called by commercial packages. */
-export function registerWidget(slot: WidgetSlot, component: ComponentType): void {
+export function registerWidget(slot: WidgetSlot, component: ComponentType<WidgetProps>): void {
   widgets[slot].push(component);
 }
 
 /** Components contributed to a widget slot (empty in OSS). */
-export function slotWidgets(slot: WidgetSlot): readonly ComponentType[] {
+export function slotWidgets(slot: WidgetSlot): readonly ComponentType<WidgetProps>[] {
   return widgets[slot];
 }
 

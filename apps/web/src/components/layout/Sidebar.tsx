@@ -242,7 +242,7 @@ export function Sidebar() {
       <div className={`border-b border-gray-100 dark:border-gray-800/50 ${collapsed ? "px-2 py-2 space-y-2" : "space-y-3 px-4 py-4"}`}>
         {slotWidgets("sidebarTop").map((W, i) => (
           <div key={i} className={collapsed ? "flex justify-center" : ""}>
-            <W />
+            <W collapsed={collapsed} />
           </div>
         ))}
         <ProjectSelector collapsed={collapsed} />
@@ -329,7 +329,7 @@ export function Sidebar() {
         {/* Sidebar-bottom widgets (e.g. the Upgrade-plan button in the cloud build). */}
         {slotWidgets("sidebarBottom").map((W, i) => (
           <div key={i} className={`mb-2 ${collapsed ? "flex justify-center" : ""}`}>
-            <W />
+            <W collapsed={collapsed} />
           </div>
         ))}
         <UserMenu collapsed={collapsed} />
