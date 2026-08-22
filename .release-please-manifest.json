@@ -1,5 +1,5 @@
 {
   "sdks/python": "2.2.0",
   "sdks/typescript": "2.3.0",
-  "apps/web": "3.9.0"
+  "apps/web": "3.9.1"
 }

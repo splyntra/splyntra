@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.9.1](https://github.com/splyntra/splyntra/compare/dashboard-v3.9.0...dashboard-v3.9.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* fix sidebar for collapsible feature ([6a85a66](https://github.com/splyntra/splyntra/commit/6a85a66d20a6d6d22f1a1520dbc67e83b83d58c7))
+* fix sidebar for collapsible feature ([6a85a66](https://github.com/splyntra/splyntra/commit/6a85a66d20a6d6d22f1a1520dbc67e83b83d58c7))
+* fix sidebar for collapsible feature ([1d2f562](https://github.com/splyntra/splyntra/commit/1d2f562123eb4605f6004a5f0cdbc08bc9edc4cd))
+
 ## [3.9.0](https://github.com/splyntra/splyntra/compare/dashboard-v3.8.1...dashboard-v3.9.0) (2026-08-20)
 
 
